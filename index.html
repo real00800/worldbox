@@ -1,0 +1,3610 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WorldBox — Восстания с границами, симметричные войны</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        overflow: hidden;
+        background: #0a0e1a;
+        font-family: 'Segoe UI', Arial, sans-serif;
+        color: white;
+        user-select: none;
+    }
+    canvas { display: block; cursor: grab; }
+    canvas:active { cursor: grabbing; }
+
+    #main-menu {
+        position: fixed; inset: 0; z-index: 1000;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        transition: opacity 0.5s; overflow: hidden;
+    }
+    #main-menu.hidden { opacity: 0; pointer-events: none; }
+    #menu-bg-canvas { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; }
+    #menu-overlay {
+        position: absolute; inset: 0;
+        background: radial-gradient(circle at 50% 50%, rgba(10,15,30,0.3) 0%, rgba(5,8,16,0.9) 100%);
+        z-index: 1;
+    }
+    #menu-content {
+        position: relative; z-index: 2;
+        display: flex; flex-direction: column;
+        align-items: center; gap: 25px; padding: 30px;
+    }
+    #main-menu h1 {
+        font-size: 64px; font-weight: 900;
+        letter-spacing: 8px; text-transform: uppercase;
+        background: linear-gradient(180deg, #ffffff 0%, #7fb8ff 50%, #4060a0 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        text-shadow: 0 0 60px rgba(100, 150, 255, 0.5);
+        margin-bottom: 5px;
+    }
+    #main-menu .subtitle {
+        font-size: 14px; letter-spacing: 6px;
+        color: #7fb8ff; text-transform: uppercase;
+        margin-bottom: 20px; opacity: 0.8;
+    }
+    .menu-buttons {
+        display: flex; flex-direction: column;
+        gap: 12px; width: 320px;
+    }
+    .menu-btn {
+        background: rgba(20, 30, 60, 0.7);
+        border: 1px solid rgba(100, 150, 255, 0.4);
+        color: #ddeeff;
+        padding: 16px 24px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-size: 16px; font-weight: 600;
+        letter-spacing: 2px; text-transform: uppercase;
+        transition: all 0.25s; font-family: inherit;
+        backdrop-filter: blur(10px);
+    }
+    .menu-btn:hover {
+        background: rgba(40, 70, 130, 0.8);
+        border-color: #7fb8ff; color: #ffffff;
+        box-shadow: 0 0 30px rgba(100, 150, 255, 0.4);
+        transform: translateY(-2px);
+    }
+    .menu-btn.primary {
+        background: linear-gradient(135deg, rgba(60, 130, 220, 0.6), rgba(100, 80, 200, 0.6));
+        border-color: #7fb8ff; font-size: 18px; padding: 18px 24px;
+    }
+    .menu-btn.primary:hover {
+        background: linear-gradient(135deg, rgba(80, 160, 240, 0.8), rgba(130, 110, 240, 0.8));
+        box-shadow: 0 0 40px rgba(100, 150, 255, 0.6);
+    }
+
+    .modal {
+        position: fixed; inset: 0; z-index: 1100;
+        display: none; align-items: center; justify-content: center;
+        background: rgba(5, 8, 16, 0.85);
+        backdrop-filter: blur(8px);
+        padding: 20px; overflow-y: auto;
+    }
+    .modal.show { display: flex; }
+    .modal-content {
+        background: linear-gradient(180deg, rgba(20, 28, 50, 0.98) 0%, rgba(15, 20, 35, 0.98) 100%);
+        border: 1px solid rgba(100, 150, 255, 0.4);
+        border-radius: 16px; padding: 30px; width: 100%;
+        max-width: 700px; max-height: 90vh; overflow-y: auto;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 60px rgba(100,150,255,0.1);
+    }
+    .modal-content h2 {
+        font-size: 26px; color: #a8c8ff;
+        letter-spacing: 3px; text-transform: uppercase;
+        margin-bottom: 6px; text-align: center;
+    }
+    .modal-content .subtitle {
+        text-align: center; color: #7a9cc8;
+        font-size: 12px; letter-spacing: 2px;
+        margin-bottom: 25px; text-transform: uppercase;
+    }
+    .option-group { margin-bottom: 22px; }
+    .option-group > label {
+        display: block; font-size: 12px;
+        color: #8aaccc; letter-spacing: 2px;
+        text-transform: uppercase; margin-bottom: 10px;
+        font-weight: 600;
+    }
+    .option-buttons { display: grid; gap: 8px; }
+    .option-buttons.cols-3 { grid-template-columns: repeat(3, 1fr); }
+    .option-buttons.cols-4 { grid-template-columns: repeat(4, 1fr); }
+    .option-buttons.cols-2 { grid-template-columns: repeat(2, 1fr); }
+    .option-btn {
+        background: rgba(40, 55, 90, 0.5);
+        border: 1px solid rgba(100, 150, 255, 0.3);
+        color: #b8cce0;
+        padding: 12px 8px; border-radius: 8px;
+        cursor: pointer; font-size: 13px;
+        font-family: inherit; transition: all 0.2s;
+        text-align: center;
+    }
+    .option-btn .small {
+        display: block; font-size: 10px;
+        color: #7a94b0; margin-top: 4px; font-weight: normal;
+    }
+    .option-btn:hover {
+        background: rgba(60, 90, 140, 0.7);
+        border-color: #7fb8ff; color: #fff;
+    }
+    .option-btn.selected {
+        background: linear-gradient(135deg, rgba(80, 140, 240, 0.5), rgba(130, 100, 220, 0.5));
+        border-color: #a8c8ff; color: #ffffff;
+        box-shadow: 0 0 20px rgba(100, 150, 255, 0.4);
+    }
+    .option-btn.selected .small { color: #c8d8f0; }
+    .toggle-row {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 12px 16px;
+        background: rgba(40, 55, 90, 0.3);
+        border-radius: 8px; margin-bottom: 8px;
+        border: 1px solid rgba(100, 150, 255, 0.15);
+    }
+    .toggle-row .label { font-size: 14px; color: #c8d8f0; }
+    .toggle-row .desc { font-size: 11px; color: #7a94b0; margin-top: 2px; }
+    .toggle {
+        width: 50px; height: 26px;
+        background: rgba(30, 40, 60, 0.8);
+        border-radius: 13px; position: relative;
+        cursor: pointer; transition: background 0.2s;
+        border: 1px solid rgba(100, 150, 255, 0.3);
+        flex-shrink: 0; margin-left: 15px;
+    }
+    .toggle::after {
+        content: ''; position: absolute;
+        width: 20px; height: 20px; border-radius: 50%;
+        background: #6a8ab0; top: 2px; left: 2px;
+        transition: all 0.2s;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    }
+    .toggle.on {
+        background: linear-gradient(90deg, rgba(60, 180, 120, 0.7), rgba(80, 200, 140, 0.7));
+        border-color: #66ff88;
+    }
+    .toggle.on::after {
+        left: 26px; background: #ffffff;
+        box-shadow: 0 0 10px rgba(100, 255, 150, 0.8);
+    }
+    .modal-actions {
+        display: flex; gap: 12px; margin-top: 25px;
+        justify-content: center;
+    }
+    .modal-actions .btn {
+        padding: 12px 28px; font-size: 14px;
+        letter-spacing: 2px; text-transform: uppercase;
+        border-radius: 8px; cursor: pointer;
+        font-family: inherit; font-weight: 600;
+        transition: all 0.2s;
+    }
+    .modal-actions .btn-cancel {
+        background: rgba(60, 40, 40, 0.5);
+        border: 1px solid rgba(200, 100, 100, 0.4);
+        color: #e0b0b0;
+    }
+    .modal-actions .btn-cancel:hover {
+        background: rgba(100, 50, 50, 0.7);
+        border-color: #ff8888; color: #fff;
+    }
+    .modal-actions .btn-play {
+        background: linear-gradient(135deg, rgba(60, 180, 100, 0.6), rgba(60, 140, 200, 0.6));
+        border: 1px solid #66ff88;
+        color: #ffffff; padding: 12px 40px;
+    }
+    .modal-actions .btn-play:hover {
+        background: linear-gradient(135deg, rgba(80, 220, 130, 0.8), rgba(80, 170, 240, 0.8));
+        box-shadow: 0 0 30px rgba(100, 255, 150, 0.5);
+    }
+    .slider-row {
+        display: flex; align-items: center; gap: 15px;
+        padding: 12px 16px;
+        background: rgba(40, 55, 90, 0.3);
+        border-radius: 8px; margin-bottom: 8px;
+        border: 1px solid rgba(100, 150, 255, 0.15);
+    }
+    .slider-row .label { font-size: 14px; color: #c8d8f0; min-width: 150px; }
+    .slider-row input[type="range"] {
+        flex: 1; -webkit-appearance: none;
+        height: 6px; background: rgba(30, 40, 60, 0.8);
+        border-radius: 3px; outline: none;
+    }
+    .slider-row input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 18px; height: 18px; border-radius: 50%;
+        background: linear-gradient(135deg, #7fb8ff, #a060ff);
+        cursor: pointer;
+        box-shadow: 0 0 10px rgba(100, 150, 255, 0.6);
+    }
+    .slider-row .value { color: #ffdd66; font-weight: bold; min-width: 50px; text-align: right; }
+
+    #game-ui { display: none; }
+    #game-ui.show { display: block; }
+    #map { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+    #top-bar {
+        position: absolute; top: 15px; left: 50%;
+        transform: translateX(-50%);
+        background: rgba(15, 20, 35, 0.9);
+        padding: 10px 30px; border-radius: 30px;
+        border: 1px solid rgba(100, 150, 255, 0.3);
+        backdrop-filter: blur(10px);
+        display: flex; gap: 25px; align-items: center;
+        z-index: 100;
+        box-shadow: 0 5px 25px rgba(0,0,0,0.5);
+    }
+    #top-bar .item { display: flex; flex-direction: column; align-items: center; }
+    #top-bar .label {
+        font-size: 10px; color: #7fa8dd;
+        text-transform: uppercase; letter-spacing: 1px;
+    }
+    #top-bar .value { font-size: 18px; font-weight: bold; color: #ffdd66; }
+    #top-bar .fps { color: #88ff88; font-size: 14px; }
+
+    #side-panel {
+        position: absolute; top: 15px; left: 15px;
+        width: 270px;
+        background: rgba(15, 20, 35, 0.95);
+        padding: 15px; border-radius: 12px;
+        border: 1px solid rgba(100, 150, 255, 0.3);
+        backdrop-filter: blur(10px);
+        z-index: 100;
+        box-shadow: 0 5px 25px rgba(0,0,0,0.5);
+    }
+    #side-panel h2 {
+        font-size: 14px; color: #7fb8ff;
+        margin-bottom: 12px; letter-spacing: 1px;
+        text-transform: uppercase;
+        border-bottom: 1px solid rgba(100,150,255,0.2);
+        padding-bottom: 8px;
+    }
+    .control-row { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+    .btn {
+        background: rgba(60, 100, 180, 0.4);
+        border: 1px solid rgba(100, 150, 255, 0.4);
+        color: #ddeeff; padding: 6px 12px;
+        border-radius: 6px; cursor: pointer;
+        font-size: 12px; transition: all 0.15s;
+        font-family: inherit;
+    }
+    .btn:hover {
+        background: rgba(80, 130, 220, 0.6);
+        border-color: #7fb8ff;
+    }
+    .btn.active {
+        background: rgba(255, 200, 80, 0.35);
+        border-color: #ffdd66; color: #ffdd66;
+    }
+    .btn.primary {
+        background: rgba(80, 200, 120, 0.3);
+        border-color: rgba(100, 255, 150, 0.5);
+        flex: 1;
+    }
+    .btn.primary:hover { background: rgba(80, 200, 120, 0.5); }
+    .btn.stats {
+        background: rgba(150, 80, 220, 0.4);
+        border-color: rgba(200, 130, 255, 0.5);
+        color: #e0c0ff;
+    }
+    .btn.stats:hover { background: rgba(170, 100, 240, 0.6); }
+    .btn.danger {
+        background: rgba(200, 60, 60, 0.35);
+        border-color: rgba(255, 100, 100, 0.5);
+        color: #ffbbbb;
+    }
+    .btn.danger:hover { background: rgba(230, 80, 80, 0.55); }
+
+    #country-info {
+        position: absolute; bottom: 15px; left: 15px;
+        width: 400px;
+        background: rgba(15, 20, 35, 0.96);
+        padding: 18px; border-radius: 12px;
+        border: 1px solid rgba(100, 150, 255, 0.4);
+        backdrop-filter: blur(10px);
+        z-index: 100;
+        box-shadow: 0 5px 25px rgba(0,0,0,0.6);
+        display: none;
+        max-height: 80vh; overflow-y: auto;
+    }
+    #country-info.show { display: block; }
+    #country-info .flag {
+        width: 40px; height: 26px;
+        border-radius: 4px;
+        border: 1px solid rgba(255,255,255,0.3);
+        display: inline-block;
+        vertical-align: middle; margin-right: 10px;
+    }
+    #country-info .name {
+        font-size: 20px; font-weight: bold;
+        color: #fff; vertical-align: middle;
+    }
+    #country-info .founded {
+        font-size: 11px;
+        color: #8aaccc;
+        margin-bottom: 10px;
+        margin-top: 4px;
+    }
+    #country-info .gov-info {
+        margin-top: 8px; padding: 8px 12px;
+        background: rgba(80, 60, 150, 0.2);
+        border-left: 3px solid #b060ff;
+        border-radius: 6px; font-size: 12px;
+    }
+    #country-info .gov-info .leader {
+        color: #ffdd66; font-weight: bold;
+        margin-top: 3px; font-size: 13px;
+    }
+    #country-info .gov-info .gov-type {
+        color: #d0a8ff; font-size: 11px;
+        text-transform: uppercase; letter-spacing: 1px;
+    }
+    #country-info .stats {
+        margin-top: 12px;
+        display: grid; grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+    #country-info .stat-box {
+        background: rgba(60, 90, 150, 0.2);
+        padding: 8px 12px; border-radius: 8px;
+        border-left: 3px solid #7fb8ff;
+    }
+    #country-info .stat-label {
+        font-size: 10px; color: #8aaccc;
+        text-transform: uppercase; letter-spacing: 1px;
+    }
+    #country-info .stat-value {
+        font-size: 16px; font-weight: bold;
+        color: #fff; margin-top: 2px;
+    }
+    #country-info .close-btn {
+        position: absolute; top: 10px; right: 12px;
+        background: none; border: none;
+        color: #8899bb; font-size: 18px;
+        cursor: pointer; padding: 0;
+        width: 22px; height: 22px; border-radius: 50%;
+    }
+    #country-info .close-btn:hover { color: #ff6666; }
+    #country-info .war-status {
+        margin-top: 10px; padding: 8px 12px;
+        border-radius: 8px;
+        background: rgba(255, 60, 60, 0.15);
+        border-left: 3px solid #ff5555;
+        font-size: 12px; color: #ffaaaa;
+    }
+    #country-info .stability-warning {
+        margin-top: 8px; padding: 8px 12px;
+        border-radius: 8px;
+        background: rgba(255, 150, 0, 0.15);
+        border-left: 3px solid #ffaa00;
+        font-size: 12px; color: #ffddaa;
+    }
+    #country-info .rebel-status {
+        margin-top: 8px; padding: 8px 12px;
+        border-radius: 8px;
+        background: rgba(255, 100, 30, 0.15);
+        border-left: 3px solid #ff6622;
+        font-size: 12px; color: #ffbb88;
+    }
+    .info-tabs {
+        display: flex;
+        gap: 4px;
+        margin-top: 14px;
+        border-bottom: 1px solid rgba(100,150,255,0.2);
+    }
+    .info-tab {
+        padding: 6px 12px;
+        font-size: 11px;
+        color: #8aaccc;
+        cursor: pointer;
+        border-radius: 6px 6px 0 0;
+        background: rgba(40, 55, 90, 0.3);
+        border: 1px solid rgba(100,150,255,0.15);
+        border-bottom: none;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    .info-tab.active {
+        background: rgba(80, 120, 200, 0.4);
+        color: #fff;
+        border-color: rgba(120, 160, 240, 0.5);
+    }
+    .info-tab:hover:not(.active) {
+        background: rgba(60, 80, 130, 0.4);
+        color: #b8cce0;
+    }
+    .info-content {
+        padding-top: 12px;
+    }
+    .info-content > div { display: none; }
+    .info-content > div.active { display: block; }
+
+    .tech-section {
+        margin-top: 12px;
+    }
+    .tech-section .header {
+        font-size: 11px; color: #8aaccc;
+        text-transform: uppercase;
+        letter-spacing: 1px; margin-bottom: 8px;
+        display: flex; justify-content: space-between;
+    }
+    .tech-section .header .era {
+        color: #ffdd66;
+        text-transform: none;
+    }
+    .tech-era-bar {
+        height: 6px;
+        background: rgba(0,0,0,0.3);
+        border-radius: 3px;
+        overflow: hidden;
+        margin-bottom: 10px;
+    }
+    .tech-era-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #ffdd66, #ff8844);
+        border-radius: 3px;
+        transition: width 0.3s;
+    }
+    .tech-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        max-height: 260px;
+        overflow-y: auto;
+        padding-right: 4px;
+    }
+    .tech-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        background: rgba(30, 45, 75, 0.4);
+        border-radius: 6px;
+        font-size: 11px;
+        border-left: 3px solid rgba(100,100,150,0.2);
+        transition: all 0.3s;
+    }
+    .tech-item.unlocked {
+        background: rgba(60, 130, 90, 0.25);
+        border-left-color: #66ff88;
+    }
+    .tech-item.researching {
+        background: rgba(200, 150, 40, 0.2);
+        border-left-color: #ffdd66;
+        animation: techPulse 2s infinite;
+    }
+    .tech-item.locked {
+        opacity: 0.5;
+    }
+    .tech-item.locked .tech-name::after {
+        content: ' 🔒';
+        opacity: 0.7;
+        font-size: 10px;
+    }
+    @keyframes techPulse {
+        0%, 100% { box-shadow: 0 0 5px rgba(255, 200, 80, 0.2); }
+        50% { box-shadow: 0 0 15px rgba(255, 200, 80, 0.5); }
+    }
+    .tech-item .tech-icon {
+        font-size: 16px;
+        width: 22px;
+        text-align: center;
+        flex-shrink: 0;
+        filter: grayscale(1);
+        opacity: 0.5;
+    }
+    .tech-item.unlocked .tech-icon,
+    .tech-item.researching .tech-icon {
+        filter: none;
+        opacity: 1;
+    }
+    .tech-item .tech-info {
+        flex: 1;
+        min-width: 0;
+    }
+    .tech-item .tech-name {
+        color: #fff;
+        font-weight: 600;
+        font-size: 11px;
+        margin-bottom: 3px;
+    }
+    .tech-item .tech-desc {
+        color: #7a94b0;
+        font-size: 9px;
+        margin-bottom: 3px;
+    }
+    .tech-item .tech-bar {
+        height: 3px;
+        background: rgba(0,0,0,0.3);
+        border-radius: 2px;
+        overflow: hidden;
+    }
+    .tech-item .tech-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #7fb8ff, #b060ff);
+        border-radius: 2px;
+        transition: width 0.3s;
+    }
+    .tech-item.unlocked .tech-fill {
+        background: linear-gradient(90deg, #66ff88, #44dd66);
+    }
+    .tech-item.researching .tech-fill {
+        background: linear-gradient(90deg, #ffdd66, #ffaa22);
+    }
+    .tech-item .tech-status {
+        font-size: 10px;
+        color: #a0a0c0;
+        min-width: 40px;
+        text-align: right;
+    }
+    .tech-item.unlocked .tech-status { color: #66ff88; }
+    .tech-item.researching .tech-status { color: #ffdd66; }
+
+    .history-list {
+        max-height: 320px;
+        overflow-y: auto;
+        padding-right: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .history-item {
+        padding: 8px 10px;
+        background: rgba(30, 45, 75, 0.35);
+        border-radius: 6px;
+        border-left: 3px solid rgba(100,150,255,0.4);
+        font-size: 11px;
+        color: #c8d8f0;
+        line-height: 1.5;
+    }
+    .history-item .h-year {
+        color: #ffdd66;
+        font-weight: bold;
+        margin-right: 6px;
+    }
+    .history-item.war { border-left-color: #ff5555; background: rgba(80, 30, 30, 0.35); }
+    .history-item.war .h-year { color: #ff8888; }
+    .history-item.peace { border-left-color: #66ff88; background: rgba(30, 80, 50, 0.35); }
+    .history-item.peace .h-year { color: #88ffaa; }
+    .history-item.tech { border-left-color: #ffdd66; background: rgba(80, 60, 20, 0.35); }
+    .history-item.gov { border-left-color: #b060ff; background: rgba(60, 30, 90, 0.35); }
+    .history-item.gov .h-year { color: #d0a8ff; }
+    .history-item.rebel { border-left-color: #ff8844; background: rgba(90, 40, 20, 0.35); }
+    .history-item.rebel .h-year { color: #ffaa66; }
+    .history-item.found { border-left-color: #66ccff; background: rgba(30, 60, 90, 0.35); }
+    .history-item.collapse { border-left-color: #888; background: rgba(40, 40, 40, 0.5); }
+    .history-empty {
+        text-align: center;
+        color: #6a7a90;
+        font-size: 11px;
+        padding: 20px;
+        font-style: italic;
+    }
+
+    #notifications {
+        position: absolute; top: 100px; right: 15px;
+        width: 300px; z-index: 100;
+    }
+    .notif {
+        background: rgba(15, 20, 35, 0.95);
+        border-left: 3px solid #7fb8ff;
+        padding: 10px 14px; border-radius: 6px;
+        margin-bottom: 8px;
+        font-size: 12px; color: #ddeeff;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    }
+    .notif.war { border-left-color: #ff5555; }
+    .notif.war .title { color: #ff8888; }
+    .notif.peace { border-left-color: #55dd88; }
+    .notif.peace .title { color: #88ffaa; }
+    .notif.tech { border-left-color: #ffdd66; }
+    .notif.tech .title { color: #ffdd66; }
+    .notif.gov { border-left-color: #b060ff; }
+    .notif.gov .title { color: #d0a8ff; }
+    .notif.rebel { border-left-color: #ff8844; }
+    .notif.rebel .title { color: #ffaa66; }
+    .notif .title { font-weight: bold; margin-bottom: 3px; }
+    #hint {
+        position: absolute; bottom: 15px; right: 15px;
+        background: rgba(15, 20, 35, 0.85);
+        padding: 8px 16px; border-radius: 20px;
+        font-size: 11px; color: #8aaccc;
+        border: 1px solid rgba(100,150,255,0.2);
+        z-index: 100;
+    }
+    #tooltip {
+        position: absolute;
+        background: rgba(10, 15, 30, 0.95);
+        border: 1px solid rgba(100,150,255,0.5);
+        padding: 6px 12px; border-radius: 6px;
+        font-size: 12px; color: #fff;
+        pointer-events: none;
+        z-index: 200; display: none;
+        white-space: nowrap;
+    }
+
+    #stats-panel {
+        position: absolute; top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        width: 90%; max-width: 900px; max-height: 85vh;
+        background: rgba(15, 20, 35, 0.98);
+        border-radius: 16px;
+        border: 1px solid rgba(150, 100, 255, 0.4);
+        backdrop-filter: blur(15px);
+        z-index: 500;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+        display: none; overflow: hidden;
+    }
+    #stats-panel.show { display: flex; flex-direction: column; }
+    #stats-panel .header {
+        padding: 20px 25px;
+        border-bottom: 1px solid rgba(150,100,255,0.3);
+        display: flex; justify-content: space-between;
+        align-items: center;
+        background: rgba(40, 25, 70, 0.5);
+    }
+    #stats-panel h1 {
+        font-size: 22px; color: #d0b0ff;
+        letter-spacing: 2px; font-weight: 600;
+    }
+    #stats-panel .close-btn {
+        background: none;
+        border: 1px solid rgba(255,100,100,0.5);
+        color: #ff8888; font-size: 18px;
+        cursor: pointer; width: 32px; height: 32px;
+        border-radius: 50%;
+    }
+    #stats-panel .close-btn:hover { background: rgba(255,80,80,0.2); }
+    #stats-panel .tabs {
+        display: flex; gap: 4px;
+        padding: 12px 25px 0;
+        background: rgba(20, 15, 40, 0.3);
+    }
+    .tab {
+        padding: 10px 20px;
+        background: rgba(60, 40, 100, 0.3);
+        border: 1px solid rgba(150,100,255,0.2);
+        border-bottom: none;
+        border-radius: 10px 10px 0 0;
+        color: #a090c0; font-size: 13px;
+        cursor: pointer; font-family: inherit;
+    }
+    .tab.active {
+        background: rgba(100, 70, 180, 0.5);
+        color: #ffffff;
+        border-color: rgba(180,130,255,0.6);
+    }
+    #stats-panel .content {
+        flex: 1; padding: 20px 25px; overflow-y: auto;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .top-section { margin-bottom: 20px; }
+    .top-section h3 {
+        font-size: 13px; color: #b0a0d0;
+        margin-bottom: 8px; letter-spacing: 1px;
+        text-transform: uppercase;
+    }
+    .top-list { display: flex; flex-direction: column; gap: 4px; }
+    .top-item {
+        display: flex; align-items: center;
+        padding: 8px 14px;
+        background: rgba(60, 40, 100, 0.2);
+        border-radius: 8px;
+        border-left: 3px solid transparent;
+        cursor: pointer;
+    }
+    .top-item:hover { background: rgba(100, 70, 180, 0.3); }
+    .top-item.rank-1 { border-left-color: #ffdd44; }
+    .top-item.rank-2 { border-left-color: #c0c0c0; }
+    .top-item.rank-3 { border-left-color: #cd7f32; }
+    .top-item .rank { width: 26px; font-size: 13px; font-weight: bold; color: #a090c0; }
+    .top-item.rank-1 .rank { color: #ffdd44; }
+    .top-item.rank-2 .rank { color: #c0c0c0; }
+    .top-item.rank-3 .rank { color: #cd7f32; }
+    .top-item .color-dot {
+        width: 12px; height: 12px;
+        border-radius: 50%; margin-right: 10px;
+    }
+    .top-item .name { flex: 1; font-size: 13px; color: #fff; }
+    .top-item .value { font-size: 13px; font-weight: bold; color: #ffdd66; }
+    .countries-table { width: 100%; font-size: 12px; border-collapse: collapse; }
+    .countries-table th {
+        text-align: left; padding: 10px 8px;
+        color: #8a7ab0; font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 1px; font-size: 10px;
+        border-bottom: 1px solid rgba(150,100,255,0.3);
+    }
+    .countries-table td {
+        padding: 10px 8px;
+        border-bottom: 1px solid rgba(150,100,255,0.1);
+        color: #d0d0e0;
+    }
+    .countries-table tr:hover td { background: rgba(100, 70, 180, 0.15); }
+    .countries-table .c-color {
+        width: 12px; height: 12px;
+        border-radius: 3px;
+        display: inline-block;
+        vertical-align: middle;
+        margin-right: 8px;
+    }
+    .countries-table .c-name { font-weight: 500; color: #fff; }
+    .countries-table .dead-name {
+        text-decoration: line-through;
+        opacity: 0.6;
+    }
+    .tech-mini { display: inline-flex; gap: 2px; }
+    .tech-mini-dot {
+        width: 5px; height: 5px;
+        border-radius: 50%;
+        background: rgba(100,100,150,0.3);
+    }
+    .tech-mini-dot.done { background: #66ff88; }
+    .tech-mini-dot.prog { background: #ffdd66; }
+
+    .stats-country-select {
+        margin-bottom: 15px;
+        display: flex; align-items: center; gap: 10px;
+    }
+    .stats-country-select select {
+        background: rgba(60, 40, 100, 0.5);
+        border: 1px solid rgba(150,100,255,0.4);
+        color: #fff; padding: 8px 12px;
+        border-radius: 6px; font-family: inherit;
+        font-size: 13px; cursor: pointer;
+        flex: 1; max-width: 300px;
+    }
+    .stats-country-select label {
+        font-size: 12px; color: #a090c0;
+        text-transform: uppercase;
+    }
+
+    .tech-detail-item {
+        display: flex; align-items: center;
+        padding: 10px 15px;
+        background: rgba(60, 40, 100, 0.15);
+        border-radius: 10px; margin-bottom: 6px;
+        border-left: 3px solid rgba(100,150,255,0.3);
+    }
+    .tech-detail-item.done { border-left-color: #66ff88; }
+    .tech-detail-item.researching { border-left-color: #ffdd66; }
+    .tech-detail-item.locked { opacity: 0.5; }
+    .tech-detail-icon { font-size: 22px; width: 36px; text-align: center; }
+    .tech-detail-body { flex: 1; margin-left: 12px; }
+    .tech-detail-name { font-size: 13px; font-weight: bold; color: #fff; margin-bottom: 3px; }
+    .tech-detail-desc { font-size: 10px; color: #8a90b0; margin-bottom: 5px; }
+    .tech-detail-era { font-size: 9px; color: #ffdd66; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
+    .tech-progress-bar {
+        height: 5px; background: rgba(0,0,0,0.3);
+        border-radius: 3px; overflow: hidden;
+    }
+    .tech-progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #7fb8ff, #b060ff);
+        border-radius: 3px;
+    }
+    .tech-detail-item.done .tech-progress-fill { background: linear-gradient(90deg, #66ff88, #44dd66); }
+    .tech-detail-item.researching .tech-progress-fill { background: linear-gradient(90deg, #ffdd66, #ffaa22); }
+    .tech-detail-status {
+        font-size: 10px; color: #a0a0c0;
+        margin-left: 10px; min-width: 55px;
+        text-align: right;
+        text-transform: uppercase;
+    }
+    .tech-detail-item.done .tech-detail-status { color: #66ff88; }
+    .tech-detail-item.researching .tech-detail-status { color: #ffdd66; }
+
+    #debug-panel {
+        position: absolute; bottom: 15px; right: 15px;
+        background: rgba(0,0,0,0.85);
+        border: 1px solid rgba(100, 255, 100, 0.4);
+        padding: 10px 15px; border-radius: 8px;
+        font-family: 'Courier New', monospace;
+        font-size: 11px; color: #88ff88;
+        z-index: 100; display: none;
+        line-height: 1.6;
+    }
+    #debug-panel.show { display: block; }
+    #debug-panel .k { color: #88ccff; }
+
+    #loading-screen {
+        position: fixed; inset: 0;
+        background: #0a0e1a; z-index: 2000;
+        display: none; flex-direction: column;
+        align-items: center; justify-content: center; gap: 20px;
+    }
+    #loading-screen.show { display: flex; }
+    #loading-screen .spinner {
+        width: 60px; height: 60px;
+        border: 4px solid rgba(100, 150, 255, 0.2);
+        border-top-color: #7fb8ff;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading-screen .text {
+        font-size: 14px; letter-spacing: 3px;
+        color: #7fb8ff; text-transform: uppercase;
+    }
+
+    #error-overlay {
+        position: fixed; top: 10px; left: 10px; right: 10px;
+        background: rgba(200, 30, 30, 0.95);
+        color: white; padding: 12px 20px;
+        border-radius: 8px; font-size: 13px;
+        font-family: monospace;
+        z-index: 9999;
+        display: none;
+        white-space: pre-wrap;
+        max-height: 200px; overflow-y: auto;
+    }
+    #error-overlay.show { display: block; }
+</style>
+</head>
+<body>
+
+<div id="error-overlay"></div>
+
+<div id="loading-screen">
+    <div class="spinner"></div>
+    <div class="text">Генерация мира...</div>
+</div>
+
+<div id="main-menu">
+    <canvas id="menu-bg-canvas"></canvas>
+    <div id="menu-overlay"></div>
+    <div id="menu-content">
+        <h1>WorldBox</h1>
+        <div class="subtitle">Симулятор Цивилизаций</div>
+        <div class="menu-buttons">
+            <button class="menu-btn primary" id="menu-play">▶ Новая игра</button>
+            <button class="menu-btn" id="menu-settings">⚙️ Настройки</button>
+            <button class="menu-btn" id="menu-about">ℹ️ О игре</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="modal-newgame">
+    <div class="modal-content">
+        <h2>🌍 Создать новый мир</h2>
+        <div class="subtitle">Настройте параметры генерации</div>
+        <div class="option-group">
+            <label>📏 Размер карты</label>
+            <div class="option-buttons cols-3">
+                <button class="option-btn" data-opt="size" data-val="small">Маленькая<span class="small">800 × 450</span></button>
+                <button class="option-btn selected" data-opt="size" data-val="medium">Средняя<span class="small">1600 × 900</span></button>
+                <button class="option-btn" data-opt="size" data-val="large">Большая<span class="small">2400 × 1350</span></button>
+            </div>
+        </div>
+        <div class="option-group">
+            <label>🗺️ Тип карты</label>
+            <div class="option-buttons cols-2">
+                <button class="option-btn selected" data-opt="type" data-val="continents">Континенты<span class="small">Реальный мир</span></button>
+                <button class="option-btn" data-opt="type" data-val="islands">Острова<span class="small">Архипелаг</span></button>
+            </div>
+        </div>
+        <div class="option-group">
+            <label>⚡ Скорость развития</label>
+            <div class="option-buttons cols-4">
+                <button class="option-btn" data-opt="dev" data-val="slow">Медленно<span class="small">×0.3</span></button>
+                <button class="option-btn selected" data-opt="dev" data-val="normal">Средне<span class="small">×1</span></button>
+                <button class="option-btn" data-opt="dev" data-val="fast">Быстро<span class="small">×2</span></button>
+                <button class="option-btn" data-opt="dev" data-val="realtime">Реалистично<span class="small">×0.15</span></button>
+            </div>
+        </div>
+        <div class="option-group">
+            <label>🏛️ Стартовых племён</label>
+            <div class="slider-row">
+                <span class="label">Количество стран</span>
+                <input type="range" id="opt-countries" min="2" max="20" value="5">
+                <span class="value" id="val-countries">5</span>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-cancel" id="newgame-cancel">Отмена</button>
+            <button class="btn btn-play" id="newgame-start">Создать мир</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="modal-settings">
+    <div class="modal-content">
+        <h2>⚙️ Настройки</h2>
+        <div class="subtitle">Параметры симуляции</div>
+        <div class="option-group">
+            <label>🎮 Игровой процесс</label>
+            <div class="toggle-row">
+                <div><div class="label">⚔️ Войны разрешены</div><div class="desc">Страны могут воевать</div></div>
+                <div class="toggle on" data-setting="warsAllowed"></div>
+            </div>
+            <div class="toggle-row">
+                <div><div class="label">🌱 Расширение территорий</div></div>
+                <div class="toggle on" data-setting="expansionAllowed"></div>
+            </div>
+            <div class="toggle-row">
+                <div><div class="label">🧪 Развитие технологий</div></div>
+                <div class="toggle on" data-setting="techAllowed"></div>
+            </div>
+            <div class="toggle-row">
+                <div><div class="label">👑 Смена правителей</div></div>
+                <div class="toggle on" data-setting="leadersChange"></div>
+            </div>
+            <div class="toggle-row">
+                <div><div class="label">🏙️ Основание городов</div></div>
+                <div class="toggle on" data-setting="citiesAllowed"></div>
+            </div>
+            <div class="toggle-row">
+                <div><div class="label">🔥 Восстания и гражданские войны</div><div class="desc">Уставшие от войн народы могут бунтовать</div></div>
+                <div class="toggle on" data-setting="rebellionsAllowed"></div>
+            </div>
+            <div class="toggle-row">
+                <div><div class="label">🌱 Появление новых племён</div><div class="desc">Новые народы зарождаются сами</div></div>
+                <div class="toggle on" data-setting="newTribesAllowed"></div>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-play" id="settings-close">Готово</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="modal-about">
+    <div class="modal-content">
+        <h2>ℹ️ О игре</h2>
+        <div class="subtitle">WorldBox — симулятор цивилизаций</div>
+        <div style="color:#b0c0d8;font-size:13px;line-height:1.8;margin:20px 0;">
+            <p style="margin-bottom:12px;">🌍 <b>WorldBox</b> — живая симуляция истории цивилизаций.</p>
+            <p style="margin-bottom:12px;">🔥 <b>Восстания</b> — при долгой войне народ бунтует и создаёт новое государство со своими границами.</p>
+            <p style="margin-bottom:12px;">⚔️ <b>Симметричные войны</b> — обе стороны атакуют друг друга.</p>
+            <p style="margin-bottom:12px;">📜 <b>Хроники</b> — у каждой страны есть собственная история.</p>
+            <p style="margin-bottom:12px;">🖱️ <b>Управление:</b></p>
+            <ul style="padding-left:20px;color:#a0b0c8;">
+                <li>ЛКМ — выбрать страну</li>
+                <li>ПКМ / перетаскивание — двигать карту</li>
+                <li>Колесо — приближение</li>
+                <li>F3 — панель отладки</li>
+            </ul>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-play" id="about-close">Понятно</button>
+        </div>
+    </div>
+</div>
+
+<div id="game-ui">
+    <canvas id="map"></canvas>
+
+    <div id="top-bar">
+        <div class="item"><div class="label">Год</div><div class="value" id="ui-year">0</div></div>
+        <div class="item"><div class="label">Стран</div><div class="value" id="ui-countries">0</div></div>
+        <div class="item"><div class="label">Население</div><div class="value" id="ui-pop">0</div></div>
+        <div class="item"><div class="label">ВВП</div><div class="value" id="ui-gdp">0</div></div>
+        <div class="item"><div class="label">Войн</div><div class="value" id="ui-wars">0</div></div>
+        <div class="item"><div class="label">Бунтов</div><div class="value" id="ui-rebels">0</div></div>
+        <div class="item"><div class="label">FPS</div><div class="value fps" id="ui-fps">60</div></div>
+    </div>
+
+    <div id="side-panel">
+        <h2>⚙️ Управление</h2>
+        <div class="control-row">
+            <button class="btn primary" id="btn-start">▶ Начать</button>
+            <button class="btn" id="btn-pause">⏸</button>
+        </div>
+        <div class="control-row">
+            <span style="font-size:11px;color:#8aaccc;align-self:center;margin-right:5px;">Скорость:</span>
+            <button class="btn speed-btn" data-speed="1">×1</button>
+            <button class="btn speed-btn active" data-speed="3">×3</button>
+            <button class="btn speed-btn" data-speed="10">×10</button>
+            <button class="btn speed-btn" data-speed="30">×30</button>
+        </div>
+        <div class="control-row" style="margin-top:12px;">
+            <button class="btn stats" id="btn-stats" style="flex:1;">📊 Статистика мира</button>
+        </div>
+        <div class="control-row">
+            <button class="btn" id="btn-settings-ingame" style="flex:1;">⚙️ Настройки</button>
+            <button class="btn danger" id="btn-menu" style="flex:1;">🏠 В меню</button>
+        </div>
+        <div class="control-row">
+            <button class="btn" id="btn-regen" style="flex:1;">🎲 Новый мир</button>
+            <button class="btn" id="btn-names">🏷️</button>
+            <button class="btn" id="btn-borders">📐</button>
+        </div>
+        <div class="control-row">
+            <button class="btn" id="btn-zoom-in" style="flex:1;">➕</button>
+            <button class="btn" id="btn-zoom-out" style="flex:1;">➖</button>
+            <button class="btn" id="btn-debug">🔧</button>
+        </div>
+    </div>
+
+    <div id="country-info">
+        <button class="close-btn" id="close-info">×</button>
+        <div style="margin-bottom:6px;">
+            <span class="flag" id="ci-flag"></span>
+            <span class="name" id="ci-name">—</span>
+        </div>
+        <div class="founded" id="ci-founded">Основано в 0 г.</div>
+        <div id="ci-gov-info" class="gov-info">
+            <div class="gov-type" id="ci-gov-type">Племя</div>
+            <div class="leader" id="ci-leader">—</div>
+        </div>
+        <div id="ci-rebel-status"></div>
+        <div class="info-tabs">
+            <div class="info-tab active" data-info="stats">📊 Обзор</div>
+            <div class="info-tab" data-info="tech">🧪 Технологии</div>
+            <div class="info-tab" data-info="history">📜 Хроники</div>
+        </div>
+        <div class="info-content">
+            <div class="active" data-info-content="stats">
+                <div style="font-size:11px;color:#8aaccc;margin:0 0 10px;" id="ci-capital">Столица: —</div>
+                <div class="stats">
+                    <div class="stat-box"><div class="stat-label">👥 Население</div><div class="stat-value" id="ci-pop">0</div></div>
+                    <div class="stat-box"><div class="stat-label">⚔️ Армия</div><div class="stat-value" id="ci-army">0</div></div>
+                    <div class="stat-box"><div class="stat-label">💰 ВВП</div><div class="stat-value" id="ci-gdp">0</div></div>
+                    <div class="stat-box"><div class="stat-label">📏 Площадь</div><div class="stat-value" id="ci-area">0</div></div>
+                    <div class="stat-box"><div class="stat-label">😊 Стабильность</div><div class="stat-value" id="ci-stability">100%</div></div>
+                    <div class="stat-box"><div class="stat-label">⚔️ Войн всего</div><div class="stat-value" id="ci-wars-total">0</div></div>
+                </div>
+                <div id="ci-war-status"></div>
+                <div id="ci-stability-warning"></div>
+            </div>
+            <div data-info-content="tech">
+                <div class="tech-section">
+                    <div class="header">
+                        <span>🧪 Прогресс</span>
+                        <span class="era" id="ci-era">Каменный век</span>
+                    </div>
+                    <div class="tech-era-bar">
+                        <div class="tech-era-fill" id="ci-era-fill" style="width:0%"></div>
+                    </div>
+                    <div class="tech-list" id="ci-tech-list"></div>
+                </div>
+            </div>
+            <div data-info-content="history">
+                <div class="history-list" id="ci-history-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="notifications"></div>
+    <div id="tooltip"></div>
+    <div id="hint">Нажмите «▶ Начать»</div>
+
+    <div id="debug-panel">
+        <div><span class="k">FPS:</span> <span id="dbg-fps">60</span></div>
+        <div><span class="k">Симуляция:</span> <span id="dbg-sim">0</span> мс</div>
+        <div><span class="k">Отрисовка:</span> <span id="dbg-draw">0</span> мс</div>
+        <div><span class="k">Клеток:</span> <span id="dbg-tiles">0</span></div>
+        <div><span class="k">Стран:</span> <span id="dbg-countries">0</span></div>
+        <div><span class="k">Войн:</span> <span id="dbg-wars">0</span></div>
+        <div><span class="k">Бунтов:</span> <span id="dbg-rebels">0</span></div>
+        <div><span class="k">Эффектов:</span> <span id="dbg-effects">0</span></div>
+    </div>
+
+    <div id="stats-panel">
+        <div class="header">
+            <h1>📊 Статистика Мира — <span id="stats-year">0</span> г.</h1>
+            <button class="close-btn" id="close-stats">×</button>
+        </div>
+        <div class="tabs">
+            <div class="tab active" data-tab="tops">🏆 Топы</div>
+            <div class="tab" data-tab="all">🌍 Все страны</div>
+            <div class="tab" data-tab="tech">🧪 Технологии</div>
+        </div>
+        <div class="content">
+            <div class="tab-content active" id="tab-tops">
+                <div class="top-section"><h3>💰 Топ-5 по ВВП</h3><div class="top-list" id="top-gdp"></div></div>
+                <div class="top-section"><h3>👥 Топ-5 по населению</h3><div class="top-list" id="top-pop"></div></div>
+                <div class="top-section"><h3>⚔️ Топ-5 по армии</h3><div class="top-list" id="top-army"></div></div>
+                <div class="top-section"><h3>📏 Топ-5 по территории</h3><div class="top-list" id="top-territory"></div></div>
+                <div class="top-section"><h3>🧪 Топ-5 по технологиям</h3><div class="top-list" id="top-tech"></div></div>
+            </div>
+            <div class="tab-content" id="tab-all">
+                <table class="countries-table">
+                    <thead>
+                        <tr>
+                            <th>#</th><th>Страна</th><th>Основана</th>
+                            <th>Правитель</th>
+                            <th>👥 Население</th><th>💰 ВВП</th>
+                            <th>⚔️ Армия</th><th>🧪 Технологии</th>
+                        </tr>
+                    </thead>
+                    <tbody id="all-countries-body"></tbody>
+                </table>
+            </div>
+            <div class="tab-content" id="tab-tech">
+                <div class="stats-country-select">
+                    <label>Страна:</label>
+                    <select id="tech-country-select"></select>
+                </div>
+                <div id="tech-detail-list"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="modal-ingame-settings">
+    <div class="modal-content">
+        <h2>⚙️ Настройки игры</h2>
+        <div class="subtitle">Изменения применяются сразу</div>
+        <div class="option-group">
+            <label>🎮 Игровой процесс</label>
+            <div class="toggle-row">
+                <div><div class="label">⚔️ Войны разрешены</div></div>
+                <div class="toggle" data-ingame-setting="warsAllowed"></div>
+            </div>
+            <div class="toggle-row">
+                <div><div class="label">🌱 Расширение территорий</div></div>
+                <div class="toggle" data-ingame-setting="expansionAllowed"></div>
+            </div>
+            <div class="toggle-row">
+                <div><div class="label">🧪 Развитие технологий</div></div>
+                <div class="toggle" data-ingame-setting="techAllowed"></div>
+            </div>
+            <div class="toggle-row">
+                <div><div class="label">👑 Смена правителей</div></div>
+                <div class="toggle" data-ingame-setting="leadersChange"></div>
+            </div>
+            <div class="toggle-row">
+                <div><div class="label">🏙️ Основание городов</div></div>
+                <div class="toggle" data-ingame-setting="citiesAllowed"></div>
+            </div>
+            <div class="toggle-row">
+                <div><div class="label">🔥 Восстания и гражданские войны</div></div>
+                <div class="toggle" data-ingame-setting="rebellionsAllowed"></div>
+            </div>
+            <div class="toggle-row">
+                <div><div class="label">🌱 Появление новых племён</div></div>
+                <div class="toggle" data-ingame-setting="newTribesAllowed"></div>
+            </div>
+        </div>
+        <div class="option-group">
+            <label>🎨 Отображение</label>
+            <div class="toggle-row">
+                <div><div class="label">🏷️ Названия стран</div></div>
+                <div class="toggle" data-ingame-setting="showNames"></div>
+            </div>
+            <div class="toggle-row">
+                <div><div class="label">📐 Границы</div></div>
+                <div class="toggle" data-ingame-setting="showBorders"></div>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-play" id="ingame-settings-close">Готово</button>
+        </div>
+    </div>
+</div>
+
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://unpkg.com/three@0.128.0/build/three.module.js"
+    }
+}
+</script>
+
+<script type="module">
+// ============================================================
+// ЗАЩИТА ОТ ОШИБОК
+// ============================================================
+window.addEventListener('error', (e) => {
+    const overlay = document.getElementById('error-overlay');
+    overlay.textContent = '⚠️ Ошибка: ' + e.message + '\n' + (e.filename || '') + ':' + (e.lineno || '');
+    overlay.classList.add('show');
+    console.error(e);
+});
+
+import * as THREE from 'three';
+
+// ============================================================
+// ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
+// ============================================================
+let mainMenu, gameUI, loadingScreen, canvas, ctx;
+let loopStarted = false;
+let lastSimUpdate = 0;
+let notifTimer = 0;
+let statsTimer = 0;
+let lastFpsUpdate = 0;
+let framesSinceFps = 0;
+let currentFps = 60;
+let simTime = 0;
+let drawTime = 0;
+let currentInfoTab = 'stats';
+
+function on(id, event, handler) {
+    const el = document.getElementById(id);
+    if (!el) { console.warn('Элемент не найден: #' + id); return null; }
+    el.addEventListener(event, handler);
+    return el;
+}
+
+const settings = {
+    mapSize: 'medium',
+    mapType: 'continents',
+    devSpeed: 'normal',
+    startCountries: 5,
+    warsAllowed: true,
+    expansionAllowed: true,
+    techAllowed: true,
+    leadersChange: true,
+    citiesAllowed: true,
+    showNames: true,
+    showBorders: true,
+    rebellionsAllowed: true,
+    newTribesAllowed: true,
+    baseGameSpeed: 5,
+};
+
+const MAP_SIZES = {
+    small:  { W: 800,  H: 450 },
+    medium: { W: 1600, H: 900 },
+    large:  { W: 2400, H: 1350 },
+};
+
+const DEV_MULT = { slow: 0.3, normal: 1, fast: 2, realtime: 0.15 };
+
+const TILE = { DEEP_OCEAN: 0, OCEAN: 1, SHALLOW: 2, SAND: 3, GRASS: 4, FOREST: 5, HILL: 6, MOUNTAIN: 7, SNOW: 8 };
+const TILE_COLORS = ['#0a1a3a','#143d6e','#2a6a9e','#e8d59e','#6a9a4a','#3d6b2f','#8a7a55','#7a7a7a','#eeeeee'];
+
+const camera = {
+    x: 0, y: 0, zoom: 1,
+    minZoom: 0.4, maxZoom: 8,
+    dragging: false,
+    dragStartX: 0, dragStartY: 0,
+    camStartX: 0, camStartY: 0,
+};
+
+// ============================================================
+// ТЕХНОЛОГИИ
+// ============================================================
+const TECHNOLOGIES = [
+    { id: 'fire', name: 'Освоение огня', icon: '🔥', desc: 'Приготовление пищи, тепло', cost: 120, era: 'Каменный век', requires: [], bonus: { pop: 0.08 } },
+    { id: 'stone_tools', name: 'Каменные орудия', icon: '🪨', desc: 'Топоры, копья, ножи', cost: 150, era: 'Каменный век', requires: ['fire'], bonus: { gdp: 0.05, army: 0.05 } },
+    { id: 'hunting', name: 'Охота', icon: '🏹', desc: 'Организованная добыча пищи', cost: 200, era: 'Каменный век', requires: ['stone_tools'], bonus: { pop: 0.1 } },
+    { id: 'farming', name: 'Земледелие', icon: '🌾', desc: 'Оседлость и зерно', cost: 350, era: 'Неолит', requires: ['hunting'], bonus: { pop: 0.2, gdp: 0.1 } },
+    { id: 'animals', name: 'Одомашнивание', icon: '🐄', desc: 'Скот и тягловая сила', cost: 400, era: 'Неолит', requires: ['farming'], bonus: { pop: 0.15, gdp: 0.1 } },
+    { id: 'pottery', name: 'Гончарство', icon: '🏺', desc: 'Хранение запасов', cost: 500, era: 'Бронзовый век', requires: ['animals'], bonus: { gdp: 0.1 } },
+    { id: 'bronze', name: 'Бронза', icon: '🥉', desc: 'Оружие из бронзы', cost: 700, era: 'Бронзовый век', requires: ['pottery'], bonus: { army: 0.15, gdp: 0.1 } },
+    { id: 'writing', name: 'Письменность', icon: '📜', desc: 'Законы и история', cost: 850, era: 'Бронзовый век', requires: ['bronze'], bonus: { gdp: 0.15, research: 0.15 } },
+    { id: 'wheel', name: 'Колесо', icon: '🛞', desc: 'Повозки', cost: 900, era: 'Бронзовый век', requires: ['bronze'], bonus: { gdp: 0.2 } },
+    { id: 'iron', name: 'Железо', icon: '⚒️', desc: 'Прочные орудия', cost: 1200, era: 'Железный век', requires: ['wheel', 'writing'], bonus: { army: 0.2, gdp: 0.15 } },
+    { id: 'math', name: 'Математика', icon: '📐', desc: 'Архитектура и налоги', cost: 1400, era: 'Античность', requires: ['writing'], bonus: { gdp: 0.2, research: 0.2 } },
+    { id: 'philosophy', name: 'Философия', icon: '📚', desc: 'Законы и этика', cost: 1600, era: 'Античность', requires: ['math'], bonus: { gdp: 0.15, research: 0.2 } },
+    { id: 'road_network', name: 'Дороги', icon: '🛣️', desc: 'Торговые пути', cost: 1800, era: 'Античность', requires: ['wheel', 'math'], bonus: { gdp: 0.25, army: 0.1 } },
+    { id: 'gunpowder', name: 'Порох', icon: '💥', desc: 'Пушки и ружья', cost: 2500, era: 'Средневековье', requires: ['iron', 'philosophy'], bonus: { army: 0.35 } },
+    { id: 'printing', name: 'Книгопечатание', icon: '📖', desc: 'Наука и образование', cost: 2800, era: 'Возрождение', requires: ['philosophy'], bonus: { gdp: 0.2, research: 0.35 } },
+    { id: 'steam', name: 'Паровой двигатель', icon: '⚙️', desc: 'Фабрики и поезда', cost: 4000, era: 'Индустриальная', requires: ['gunpowder', 'printing'], bonus: { gdp: 0.4, army: 0.15 } },
+    { id: 'railways', name: 'Железные дороги', icon: '🚂', desc: 'Массовая перевозка', cost: 5000, era: 'Индустриальная', requires: ['steam'], bonus: { gdp: 0.35, army: 0.2 } },
+    { id: 'electricity', name: 'Электричество', icon: '⚡', desc: 'Свет, связь, заводы', cost: 6500, era: 'Индустриальная', requires: ['steam'], bonus: { gdp: 0.4, pop: 0.15, research: 0.2 } },
+    { id: 'combustion', name: 'Двигатель', icon: '🚗', desc: 'Авто и танки', cost: 8000, era: 'Современная', requires: ['electricity', 'railways'], bonus: { gdp: 0.3, army: 0.3 } },
+    { id: 'radio', name: 'Радио', icon: '📡', desc: 'Массовые коммуникации', cost: 9000, era: 'Современная', requires: ['electricity'], bonus: { gdp: 0.2, research: 0.3 } },
+    { id: 'computers', name: 'Компьютеры', icon: '💻', desc: 'Автоматизация', cost: 12000, era: 'Современная', requires: ['radio'], bonus: { gdp: 0.5, research: 0.5 } },
+    { id: 'nuclear', name: 'Ядерная энергия', icon: '☢️', desc: 'Атомная энергия', cost: 15000, era: 'Современная', requires: ['computers'], bonus: { gdp: 0.3, army: 0.5 } },
+    { id: 'rockets', name: 'Ракеты', icon: '🚀', desc: 'Баллистика и спутники', cost: 20000, era: 'Космическая', requires: ['nuclear'], bonus: { army: 0.4, gdp: 0.2 } },
+    { id: 'space', name: 'Космос', icon: '🛰️', desc: 'Орбитальные станции', cost: 28000, era: 'Космическая', requires: ['rockets', 'computers'], bonus: { gdp: 0.5, research: 0.5 } },
+    { id: 'ai', name: 'ИИ', icon: '🤖', desc: 'Роботы и автономные системы', cost: 40000, era: 'Постчеловечество', requires: ['space'], bonus: { gdp: 0.6, research: 0.6, army: 0.3 } },
+    { id: 'fusion', name: 'Термояд', icon: '🌟', desc: 'Чистая энергия', cost: 60000, era: 'Постчеловечество', requires: ['ai', 'nuclear'], bonus: { gdp: 0.8, research: 0.4 } },
+    { id: 'interstellar', name: 'Межзвёздные полёты', icon: '🌌', desc: 'Колонизация галактики', cost: 100000, era: 'Постчеловечество', requires: ['fusion', 'space'], bonus: { gdp: 1.0, research: 1.0, army: 0.5 } },
+];
+const TECH_BY_ID = {};
+TECHNOLOGIES.forEach(t => TECH_BY_ID[t.id] = t);
+const TECH_ORDER = {};
+TECHNOLOGIES.forEach((t, i) => TECH_ORDER[t.id] = i);
+
+const ERAS = [
+    { name: 'Каменный век',    color: '#8B6914' },
+    { name: 'Неолит',          color: '#9d7a2a' },
+    { name: 'Бронзовый век',   color: '#cd7f32' },
+    { name: 'Железный век',    color: '#778899' },
+    { name: 'Античность',      color: '#ffd700' },
+    { name: 'Средневековье',   color: '#8b0000' },
+    { name: 'Возрождение',     color: '#00ced1' },
+    { name: 'Индустриальная',  color: '#4169e1' },
+    { name: 'Современная',     color: '#00ff7f' },
+    { name: 'Космическая',     color: '#ff00ff' },
+    { name: 'Постчеловечество',color: '#ff4500' },
+];
+
+function getEra(country) {
+    const count = country.techsUnlocked.size;
+    if (count === 0) return ERAS[0];
+    let maxIdx = -1, lastEra = ERAS[0];
+    for (const id of country.techsUnlocked) {
+        const t = TECH_BY_ID[id];
+        if (!t) continue;
+        const idx = ERAS.findIndex(e => e.name === t.era);
+        if (idx > maxIdx) { maxIdx = idx; lastEra = ERAS[idx]; }
+    }
+    return lastEra;
+}
+
+// ============================================================
+// ФОРМЫ ПРАВЛЕНИЯ
+// ============================================================
+const GOVERNMENT_TYPES = [
+    { id: 'tribe',        name: 'Племя',      icon: '🏕️', power: 'leader',       color: '#8B6914' },
+    { id: 'monarchy',     name: 'Монархия',   icon: '👑', power: 'king',         color: '#9b30ff' },
+    { id: 'republic',     name: 'Республика', icon: '🏛️', power: 'president',    color: '#4361ee' },
+    { id: 'democracy',    name: 'Демократия', icon: '🗳️', power: 'president',    color: '#06d6a0' },
+    { id: 'dictatorship', name: 'Диктатура',  icon: '👊', power: 'dictator',     color: '#e63946' },
+    { id: 'empire',       name: 'Империя',    icon: '🦅', power: 'emperor',      color: '#cd7f32' },
+    { id: 'theocracy',    name: 'Теократия',  icon: '⛪', power: 'high_priest',  color: '#f77f00' },
+    { id: 'communism',    name: 'Коммунизм',  icon: '☭', power: 'secretary',    color: '#cc0000' },
+    { id: 'federation',   name: 'Федерация',  icon: '🤝', power: 'president',    color: '#7209b7' },
+];
+const GOV_BY_ID = {};
+GOVERNMENT_TYPES.forEach(g => GOV_BY_ID[g.id] = g);
+
+const GOV_BONUSES = {
+    tribe:        { gdp: -0.2,  pop: 0,     army: 0 },
+    monarchy:     { gdp: 0,     pop: 0,     army: 0.1 },
+    empire:       { gdp: 0.1,   pop: 0,     army: 0.2 },
+    republic:     { gdp: 0.15,  pop: 0.05,  army: 0 },
+    democracy:    { gdp: 0.2,   pop: 0.1,   army: -0.05 },
+    dictatorship: { gdp: 0,     pop: -0.05, army: 0.25 },
+    theocracy:    { gdp: -0.1,  pop: 0,     army: 0.1 },
+    communism:    { gdp: 0,     pop: 0.1,   army: 0.15 },
+    federation:   { gdp: 0.15,  pop: 0.1,   army: 0.05 },
+};
+
+const LEADER_TITLES = {
+    leader:      ['Вождь', 'Старейшина', 'Шаман'],
+    king:        ['Король', 'Царь', 'Князь', 'Император', 'Султан'],
+    president:   ['Президент', 'Канцлер', 'Премьер-министр'],
+    dictator:    ['Диктатор', 'Фюрер', 'Генерал'],
+    emperor:     ['Император', 'Царь', 'Кайзер'],
+    high_priest: ['Патриарх', 'Папа', 'Верховный жрец'],
+    secretary:   ['Генеральный секретарь', 'Председатель'],
+};
+
+const MALE_NAMES = ['Александр','Иван','Пётр','Николай','Дмитрий','Михаил','Сергей','Владимир',
+    'Кирилл','Андрей','Юрий','Олег','Игорь','Виктор','Георгий','Борис','Константин','Артём',
+    'Максим','Рустам','Тимур','Карл','Фридрих','Генрих','Людовик','Филипп','Наполеон','Цезарь'];
+const FEMALE_NAMES = ['Екатерина','Мария','Анна','Елизавета','Ольга','София','Ирина','Елена',
+    'Татьяна','Наталья','Виктория','Александра','Ксения','Юлия','Кристина','Маргарет','Изабелла','Клеопатра'];
+const SURNAMES = ['Великий','Мудрый','Грозный','Справедливый','Кровавый','Тихий','Сильный',
+    'Красивый','Ужасный','Благословенный','Завоеватель','Миротворец','Строитель'];
+
+const REBEL_NAMES = ['Свободная', 'Народная', 'Республика', 'Восставшая', 'Независимая', 'Красная', 'Тёмная', 'Северная', 'Южная'];
+const REBEL_SUFFIX = ['Армия', 'Республика', 'Коммуна', 'Союз', 'Братство'];
+
+const world = {
+    W: 1600, H: 900,
+    TILE_SIZE: 4,
+    COLS: 400, ROWS: 225,
+    seed: 0,
+    tiles: null,
+    height: null,
+    tileOwner: null,
+    countries: [],
+    countryById: new Map(),
+    year: 0, running: false, speed: 3,
+    selectedCountry: null, wars: 0, nextCountryId: 0,
+    activeWars: [], battles: [],
+    rebellions: 0,
+    deadCountries: [],
+};
+
+let neighborCacheYear = -999;
+const neighborCache = new Map();
+
+// ============================================================
+// 3D ПЛАНЕТА В МЕНЮ
+// ============================================================
+function initMenuBackground() {
+    try {
+        const menuCanvas = document.getElementById('menu-bg-canvas');
+        const renderer = new THREE.WebGLRenderer({ canvas: menuCanvas, antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        const scene = new THREE.Scene();
+        const cam = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        cam.position.set(0, 0.5, 3);
+
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
+        sunLight.position.set(5, 3, 5);
+        scene.add(sunLight);
+        scene.add(new THREE.AmbientLight(0x404060, 0.9));
+
+        const tl = new THREE.TextureLoader();
+        const earth = new THREE.Mesh(
+            new THREE.SphereGeometry(1, 96, 96),
+            new THREE.MeshPhongMaterial({
+                map: tl.load('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg'),
+                specularMap: tl.load('https://threejs.org/examples/textures/planets/earth_specular_2048.jpg'),
+                specular: new THREE.Color('grey'),
+                shininess: 22,
+                normalMap: tl.load('https://threejs.org/examples/textures/planets/earth_normal_2048.jpg'),
+                normalScale: new THREE.Vector2(1.3, 1.3),
+            })
+        );
+        earth.rotation.z = 0.4;
+        scene.add(earth);
+
+        const clouds = new THREE.Mesh(
+            new THREE.SphereGeometry(1.008, 96, 96),
+            new THREE.MeshPhongMaterial({
+                map: tl.load('https://threejs.org/examples/textures/planets/earth_clouds_1024.png'),
+                transparent: true, opacity: 0.35,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false, side: THREE.DoubleSide
+            })
+        );
+        clouds.rotation.z = 0.4;
+        scene.add(clouds);
+
+        const glow = new THREE.Mesh(
+            new THREE.SphereGeometry(1.08, 64, 64),
+            new THREE.MeshPhongMaterial({ color: 0x3399ff, transparent: true, opacity: 0.1, side: THREE.BackSide })
+        );
+        scene.add(glow);
+
+        const starsGeom = new THREE.BufferGeometry();
+        const starCount = 2000;
+        const starPos = new Float32Array(starCount * 3);
+        for (let i = 0; i < starCount * 3; i += 3) {
+            const r = 200 + Math.random() * 600;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos((Math.random() * 2) - 1);
+            starPos[i] = r * Math.sin(phi) * Math.cos(theta);
+            starPos[i+1] = r * Math.sin(phi) * Math.sin(theta);
+            starPos[i+2] = r * Math.cos(phi);
+        }
+        starsGeom.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+        const stars = new THREE.Points(starsGeom, new THREE.PointsMaterial({
+            color: 0xffffff, size: 0.9, sizeAttenuation: true, transparent: true, opacity: 0.9
+        }));
+        scene.add(stars);
+
+        function animateMenu() {
+            requestAnimationFrame(animateMenu);
+            earth.rotation.y += 0.0012;
+            clouds.rotation.y += 0.0016;
+            glow.rotation.y += 0.0008;
+            stars.rotation.y += 0.00005;
+            renderer.render(scene, cam);
+        }
+        animateMenu();
+
+        window.addEventListener('resize', () => {
+            cam.aspect = window.innerWidth / window.innerHeight;
+            cam.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    } catch (e) {
+        console.error('Меню фон не загрузился:', e);
+    }
+}
+
+initMenuBackground();
+
+// ============================================================
+// ШУМ
+// ============================================================
+function makeNoise(seed) {
+    const rand = (x, y) => {
+        const n = Math.sin(x * 12.9898 + y * 78.233 + seed * 43758.5453) * 43758.5453;
+        return n - Math.floor(n);
+    };
+    const smooth = t => t * t * (3 - 2 * t);
+    const lerp = (a, b, t) => a + (b - a) * t;
+    return function noise(x, y) {
+        const xi = Math.floor(x), yi = Math.floor(y);
+        const xf = x - xi, yf = y - yi;
+        const v00 = rand(xi, yi);
+        const v10 = rand(xi + 1, yi);
+        const v01 = rand(xi, yi + 1);
+        const v11 = rand(xi + 1, yi + 1);
+        const u = smooth(xf), v = smooth(yf);
+        return lerp(lerp(v00, v10, u), lerp(v01, v11, u), v);
+    };
+}
+function fractalNoise(noise, x, y, octaves = 5, persistence = 0.5, scale = 1) {
+    let value = 0, amplitude = 1, frequency = scale, maxValue = 0;
+    for (let i = 0; i < octaves; i++) {
+        value += noise(x * frequency, y * frequency) * amplitude;
+        maxValue += amplitude;
+        amplitude *= persistence;
+        frequency *= 2;
+    }
+    return value / maxValue;
+}
+
+// ============================================================
+// ГЕНЕРАЦИЯ КАРТЫ С КОНТИНЕНТАМИ
+// ============================================================
+function generateWorld() {
+    world.seed = Math.random() * 10000;
+    const noise = makeNoise(world.seed);
+    const noise2 = makeNoise(world.seed + 1000);
+    const noise3 = makeNoise(world.seed + 2000);
+    const cols = world.COLS, rows = world.ROWS;
+    const total = cols * rows;
+
+    world.tiles = new Uint8Array(total);
+    world.height = new Float32Array(total);
+    world.tileOwner = new Int16Array(total).fill(-1);
+
+    const isIslands = settings.mapType === 'islands';
+
+    for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+            const nx = x / cols, ny = y / rows;
+            let h;
+
+            if (isIslands) {
+                h = fractalNoise(noise, nx * 8, ny * 8, 5, 0.5);
+                h += fractalNoise(noise2, nx * 20, ny * 20, 3, 0.5) * 0.2;
+                h = Math.pow(h, 1.5);
+            } else {
+                const base = fractalNoise(noise, nx * 2.5, ny * 2.5, 4, 0.55);
+                const plate1 = Math.sin(nx * 3.14 + 0.5) * Math.sin(ny * 3.14 + 1.2);
+                const plate2 = Math.sin(nx * 2.5 + 2.1) * Math.cos(ny * 2.8 + 0.3);
+                const plate3 = Math.cos(nx * 4.2 + 1.7) * Math.sin(ny * 3.5 + 2.8);
+
+                let continental = (base * 0.7 + 0.15);
+                continental += plate1 * 0.08 + plate2 * 0.06 + plate3 * 0.05;
+
+                const detail = fractalNoise(noise2, nx * 12, ny * 12, 4, 0.5);
+                const fine = fractalNoise(noise3, nx * 30, ny * 30, 3, 0.5);
+
+                h = continental + detail * 0.25 + fine * 0.08;
+
+                const edgeX = Math.min(nx, 1 - nx) * 2;
+                const edgeY = Math.min(ny, 1 - ny) * 2;
+                const edgeMask = Math.min(edgeX, edgeY);
+                const edgeFade = Math.max(0, Math.min(1, edgeMask * 3));
+                h = h * edgeFade + 0.15 * (1 - edgeFade);
+            }
+
+            const i = y * cols + x;
+            world.height[i] = h;
+
+            const seaLevel = 0.5;
+
+            let t;
+            if (h < seaLevel - 0.18) t = TILE.DEEP_OCEAN;
+            else if (h < seaLevel - 0.05) t = TILE.OCEAN;
+            else if (h < seaLevel + 0.02) t = TILE.SHALLOW;
+            else if (h < seaLevel + 0.06) t = TILE.SAND;
+            else if (h < seaLevel + 0.18) t = TILE.GRASS;
+            else if (h < seaLevel + 0.28) t = TILE.FOREST;
+            else if (h < seaLevel + 0.38) t = TILE.HILL;
+            else if (h < seaLevel + 0.5) t = TILE.MOUNTAIN;
+            else t = TILE.SNOW;
+
+            world.tiles[i] = t;
+        }
+    }
+    smoothMap();
+}
+
+function smoothMap() {
+    const cols = world.COLS, rows = world.ROWS;
+    const newTiles = new Uint8Array(world.tiles.length);
+    for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+            const counts = new Uint8Array(9);
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    const nx = x + dx, ny = y + dy;
+                    if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) continue;
+                    counts[world.tiles[ny * cols + nx]]++;
+                }
+            }
+            let best = world.tiles[y * cols + x], bestCount = 0;
+            for (let t = 0; t < 9; t++) {
+                if (counts[t] > bestCount) { bestCount = counts[t]; best = t; }
+            }
+            newTiles[y * cols + x] = best;
+        }
+    }
+    world.tiles = newTiles;
+}
+
+// ============================================================
+// ИМЕНА
+// ============================================================
+const NAME_PREFIX = ['Аль','Бер','Вал','Гор','Дор','Эль','Жар','Кор','Лун','Мор',
+    'Нор','Орл','Пал','Рос','Сар','Тир','Урл','Фар','Хал','Цир',
+    'Вин','Гал','Дан','Зем','Ирл','Каст','Лот','Мир','Нев','Ост'];
+const NAME_SUFFIX = ['ия','ланд','ия','стан','ор','ум','ис','ат','он','гард',
+    'стан','ия','ель','ар','ия','ика','ия','ский край','ово','ана'];
+const CITY_SUFFIX = ['град','бург','поль','форт','вилль','тон','шир','холм',
+    'берг','стад','дол','реч','порт','филд','форд','бридж'];
+
+function randomName() {
+    return NAME_PREFIX[(Math.random() * NAME_PREFIX.length) | 0] +
+           NAME_SUFFIX[(Math.random() * NAME_SUFFIX.length) | 0].toLowerCase();
+}
+function randomCityName() {
+    return NAME_PREFIX[(Math.random() * NAME_PREFIX.length) | 0] +
+           CITY_SUFFIX[(Math.random() * CITY_SUFFIX.length) | 0].toLowerCase();
+}
+function randomRebelName(parentName) {
+    // Формируем имя повстанцев на основе родителя
+    const formats = [
+        () => 'Свободная ' + parentName,
+        () => parentName + 'ская Республика',
+        () => 'Народная ' + parentName,
+        () => parentName + 'ский Союз',
+        () => 'Новая ' + parentName,
+        () => 'Восставшая ' + parentName,
+    ];
+    return formats[(Math.random() * formats.length) | 0]();
+}
+function randomLeaderName(power) {
+    const isFemale = Math.random() < 0.25;
+    const firstName = isFemale
+        ? FEMALE_NAMES[(Math.random() * FEMALE_NAMES.length) | 0]
+        : MALE_NAMES[(Math.random() * MALE_NAMES.length) | 0];
+    const titles = LEADER_TITLES[power] || LEADER_TITLES.leader;
+    const title = titles[(Math.random() * titles.length) | 0];
+    let suffix = '';
+    if (power === 'king' || power === 'emperor') {
+        const num = ['I','II','III','IV','V','VI','VII','VIII','IX','X'];
+        suffix = ' ' + num[(Math.random() * num.length) | 0];
+    } else if (Math.random() < 0.4) {
+        suffix = ' ' + SURNAMES[(Math.random() * SURNAMES.length) | 0];
+    }
+    return { name: firstName + suffix, title, isFemale };
+}
+
+// ============================================================
+// СТРАНА
+// ============================================================
+class Country {
+    constructor(color, options = {}) {
+        this.id = world.nextCountryId++;
+        this.name = options.name || randomName();
+        this.color = color;
+        this.capital = null;
+        this.cities = [];
+        this.tiles = 0;
+        this.population = 0;
+        this.army = 0;
+        this.gdp = 0;
+        this.tech = 0;
+        this.wars = 0;
+        this.alive = true;
+        this.birthYear = world.year;
+        this.deathYear = null;
+        this.aggression = 0.3 + Math.random() * 0.5;
+        this.enemies = new Set();
+        this.morale = 1.0;
+        this.currentResearch = null;
+        this.researchProgress = 0;
+        this.techsUnlocked = new Set();
+        this.researchSpeed = 0.3 + Math.random() * 1.5;
+        this.personality = ['military','economic','scientific','balanced'][(Math.random() * 4) | 0];
+        this._techBonusCache = { pop: 0, gdp: 0, army: 0, research: 0 };
+        this.govType = null;
+        this.leader = null;
+        this.leaderAge = 30 + (Math.random() * 20) | 0;
+        this.leaderSince = world.year;
+        this.govChangeCooldown = 200 + (Math.random() * 300) | 0;
+
+        this.stability = 1.0;
+        this.warWeariness = 0;
+        this.consecutiveWarYears = 0;
+        this.lastRebellionYear = -9999;
+        this.parentId = null;
+        this.isRebel = options.isRebel || false;
+
+        this.history = [];
+        this.addHistory(`🌍 Основание государства ${this.name}`, 'found');
+
+        this.initGovernment();
+    }
+
+    addHistory(text, type = '') {
+        if (this.history.length >= 100) {
+            const importantTypes = ['war', 'peace', 'gov', 'found', 'collapse', 'rebel'];
+            for (let i = 0; i < this.history.length; i++) {
+                if (!importantTypes.includes(this.history[i].type)) {
+                    this.history.splice(i, 1);
+                    break;
+                }
+            }
+        }
+        this.history.push({ year: world.year, text, type });
+    }
+
+    initGovernment() {
+        const earlyGovs = ['tribe', 'tribe', 'monarchy'];
+        this.setGovernment(earlyGovs[(Math.random() * earlyGovs.length) | 0], true);
+    }
+
+    setGovernment(govId, silent = false) {
+        const gov = GOV_BY_ID[govId];
+        if (!gov) return;
+        this.govType = gov;
+        this.leader = randomLeaderName(gov.power);
+        this.leaderAge = 25 + (Math.random() * 25) | 0;
+        this.leaderSince = world.year;
+        this.govChangeCooldown = 200 + (Math.random() * 400) | 0;
+        if (!silent) {
+            notify(`🏛️ ${this.name}: ${gov.icon} ${gov.name}`, 'gov');
+            this.addHistory(`🏛️ Новая форма правления: ${gov.icon} ${gov.name}`, 'gov');
+        }
+    }
+
+    changeLeader() {
+        this.leader = randomLeaderName(this.govType.power);
+        this.leaderAge = 25 + (Math.random() * 20) | 0;
+        this.leaderSince = world.year;
+        this.addHistory(`👑 Новый правитель: ${this.leader.title} ${this.leader.name}`, 'gov');
+    }
+
+    canResearch(techId) {
+        const tech = TECH_BY_ID[techId];
+        if (!tech) return false;
+        if (this.techsUnlocked.has(techId)) return false;
+        for (const req of tech.requires) {
+            if (!this.techsUnlocked.has(req)) return false;
+        }
+        return true;
+    }
+
+    getAvailableTechs() {
+        return TECHNOLOGIES.filter(t => this.canResearch(t.id));
+    }
+
+    chooseGovernmentEvolution() {
+        const tech = this.techsUnlocked.size;
+        const pop = this.population;
+        const possible = ['tribe'];
+        if (tech >= 3) possible.push('monarchy');
+        if (tech >= 8) possible.push('empire', 'theocracy');
+        if (tech >= 12) possible.push('republic', 'dictatorship');
+        if (tech >= 16) possible.push('democracy', 'communism');
+        if (tech >= 20) possible.push('federation');
+        const filtered = possible.filter(g => g !== this.govType.id);
+        if (filtered.length === 0) return;
+        const weights = {};
+        for (const g of filtered) {
+            weights[g] = 1;
+            if (this.personality === 'military' && (g === 'dictatorship' || g === 'empire')) weights[g] = 4;
+            if (this.personality === 'economic' && (g === 'republic' || g === 'democracy' || g === 'federation')) weights[g] = 4;
+            if (this.personality === 'scientific' && (g === 'democracy' || g === 'republic')) weights[g] = 3;
+            if (pop > 500000 && (g === 'empire' || g === 'federation')) weights[g] = 3;
+            if (pop < 10000 && g === 'tribe') weights[g] = 3;
+        }
+        const totalWeight = Object.values(weights).reduce((a, b) => a + b, 0);
+        let r = Math.random() * totalWeight;
+        for (const [g, w] of Object.entries(weights)) {
+            r -= w;
+            if (r <= 0) { this.setGovernment(g); return; }
+        }
+    }
+
+    updateLeader(deltaYears) {
+        if (!settings.leadersChange) return;
+        this.leaderAge += deltaYears;
+        if (this.leaderAge > 55 + Math.random() * 30) {
+            this.changeLeader();
+            notify(`👑 ${this.name}: ${this.leader.title} ${this.leader.name}`, 'gov');
+        }
+        this.govChangeCooldown -= deltaYears;
+        if (this.govChangeCooldown <= 0 && this.techsUnlocked.size >= 3) {
+            if (Math.random() < 0.3) this.chooseGovernmentEvolution();
+            else this.govChangeCooldown = 200 + (Math.random() * 400) | 0;
+        }
+    }
+
+    rebuildTechBonusCache() {
+        this._techBonusCache = { pop: 0, gdp: 0, army: 0, research: 0 };
+        for (const id of this.techsUnlocked) {
+            const t = TECH_BY_ID[id];
+            if (!t) continue;
+            for (const k in t.bonus) {
+                if (this._techBonusCache[k] !== undefined) {
+                    this._techBonusCache[k] += t.bonus[k];
+                }
+            }
+        }
+    }
+    getTechBonus(key) { return this._techBonusCache[key] || 0; }
+
+    chooseNextTech() {
+        const available = this.getAvailableTechs();
+        if (available.length === 0) return null;
+        let best = null, bestScore = -1;
+        for (const t of available) {
+            let score = 1 + Math.random() * 1.5;
+            if (this.personality === 'military') {
+                if (t.bonus.army) score += t.bonus.army * 10;
+                if (['bronze', 'iron', 'gunpowder', 'nuclear', 'rockets'].includes(t.id)) score += 3;
+            }
+            if (this.personality === 'economic' && t.bonus.gdp) score += t.bonus.gdp * 10;
+            if (this.personality === 'scientific') {
+                if (t.bonus.research) score += t.bonus.research * 10;
+                if (['writing', 'math', 'printing', 'computers', 'ai'].includes(t.id)) score += 3;
+            }
+            score -= TECH_ORDER[t.id] * 0.02;
+            if (score > bestScore) { bestScore = score; best = t; }
+        }
+        return best;
+    }
+
+    updateResearch(deltaYears = 1) {
+        if (!this.alive || !settings.techAllowed) return;
+        if (!this.currentResearch) {
+            const next = this.chooseNextTech();
+            if (!next) return;
+            this.currentResearch = next.id;
+            this.researchProgress = 0;
+        }
+        const tech = TECH_BY_ID[this.currentResearch];
+        if (!tech) { this.currentResearch = null; return; }
+
+        const popFactor = Math.min(1.5, this.population / 100000 + 0.15);
+        const gdpFactor = Math.min(1.5, this.gdp / 2000000 + 0.15);
+        const scienceFactor = 1 + this.tech * 0.04;
+        const slowdown = 1 / (1 + this.techsUnlocked.size * 0.06);
+
+        const speed = this.researchSpeed * popFactor * gdpFactor * scienceFactor * slowdown;
+        const progressPerYear = (0.3 + speed * 0.6) * DEV_MULT[settings.devSpeed];
+        this.researchProgress += progressPerYear * deltaYears;
+
+        if (this.researchProgress >= tech.cost) {
+            this.techsUnlocked.add(tech.id);
+            this.tech = this.techsUnlocked.size;
+            this.currentResearch = null;
+            this.researchProgress = 0;
+            this.rebuildTechBonusCache();
+            notify(`🧪 ${this.name}: «${tech.name}»`, 'tech');
+            this.addHistory(`🧪 Изучено: ${tech.icon} ${tech.name}`, 'tech');
+        }
+    }
+
+    updateStability(deltaYears) {
+        if (!this.alive) return;
+        if (this.enemies.size > 0) {
+            this.consecutiveWarYears += deltaYears;
+            const warPenalty = 0.005 * this.enemies.size * deltaYears;
+            this.stability = Math.max(0, this.stability - warPenalty);
+            this.warWeariness += deltaYears * 0.01;
+        } else {
+            this.consecutiveWarYears = 0;
+            const recovery = 0.003 * deltaYears;
+            this.stability = Math.min(1, this.stability + recovery);
+            this.warWeariness = Math.max(0, this.warWeariness - deltaYears * 0.02);
+        }
+        if (this.stability < 0.4) {
+            this.stability = Math.max(0, this.stability - 0.001 * deltaYears);
+        }
+    }
+
+    canRebel() {
+        if (!this.alive) return false;
+        if (!settings.rebellionsAllowed) return false;
+        if (this.isRebel) return false;
+        if (this.stability > 0.35) return false;
+        if (world.year - this.lastRebellionYear < 50) return false;
+        if (this.tiles < 30) return false;
+        return true;
+    }
+
+    recalc() {
+        let tiles = 0, basePop = 0, gdpBase = 0;
+        const total = world.COLS * world.ROWS;
+        const id = this.id;
+        const tilesArr = world.tiles;
+        const ownerArr = world.tileOwner;
+        for (let i = 0; i < total; i++) {
+            if (ownerArr[i] !== id) continue;
+            tiles++;
+            const t = tilesArr[i];
+            if (t === TILE.GRASS) { basePop += 50; gdpBase += 100; }
+            else if (t === TILE.FOREST) { basePop += 25; gdpBase += 80; }
+            else if (t === TILE.HILL) { basePop += 15; gdpBase += 60; }
+            else if (t === TILE.SAND) { basePop += 5; gdpBase += 20; }
+            else if (t === TILE.MOUNTAIN) { basePop += 3; gdpBase += 40; }
+        }
+        this.tiles = tiles;
+        const govB = GOV_BONUSES[this.govType.id] || GOV_BONUSES.tribe;
+        const popBonus = this._techBonusCache.pop + govB.pop;
+        const gdpBonus = this._techBonusCache.gdp + govB.gdp;
+        const armyBonus = this._techBonusCache.army + govB.army;
+        const stabilityMult = 0.5 + this.stability * 0.5;
+        this.population = Math.floor(basePop * (1 + this.tech * 0.03 + popBonus) * this.morale * stabilityMult);
+        this.gdp = Math.floor(gdpBase * (1 + this.tech * 0.08 + gdpBonus) * this.morale * stabilityMult);
+        const targetArmy = Math.floor(this.population * 0.1 * (0.8 + this.aggression * 0.4) * (1 + armyBonus) * stabilityMult);
+        if (this.army < targetArmy) {
+            this.army = Math.floor(this.army + (targetArmy - this.army) * 0.15);
+        } else {
+            this.army = targetArmy;
+        }
+    }
+}
+
+const COUNTRY_COLORS = [
+    '#e63946','#f77f00','#fcbf49','#06d6a0','#118ab2',
+    '#06a77d','#7209b7','#f72585','#4361ee','#fb8500',
+    '#2a9d8f','#e76f51','#9b5de5','#ff006e','#3a86ff',
+    '#8ac926','#ff595e','#1982c4','#6a4c93','#ffca3a',
+];
+
+// ============================================================
+// СПАВН
+// ============================================================
+function findStartLocation() {
+    const cols = world.COLS, rows = world.ROWS;
+    const radius = settings.mapSize === 'large' ? 15 : 10;
+    for (let attempt = 0; attempt < 300; attempt++) {
+        const x = 20 + ((Math.random() * (cols - 40)) | 0);
+        const y = 20 + ((Math.random() * (rows - 40)) | 0);
+        const t = world.tiles[y * cols + x];
+        if (t !== TILE.GRASS && t !== TILE.FOREST) continue;
+        let occupied = false;
+        for (let dy = -radius; dy <= radius && !occupied; dy++) {
+            for (let dx = -radius; dx <= radius; dx++) {
+                const nx = x + dx, ny = y + dy;
+                if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) continue;
+                if (world.tileOwner[ny * cols + nx] !== -1) { occupied = true; break; }
+            }
+        }
+        if (!occupied) return { x, y };
+    }
+    return null;
+}
+
+// Обычный спавн (BFS от одной точки)
+function spawnCountry(options = {}) {
+    const start = options.start || findStartLocation();
+    if (!start) return null;
+
+    const color = options.color || COUNTRY_COLORS[world.nextCountryId % COUNTRY_COLORS.length];
+    const country = new Country(color, options);
+    country.birthYear = world.year;
+    world.countries.push(country);
+    world.countryById.set(country.id, country);
+
+    const cols = world.COLS, rows = world.ROWS;
+    const toClaim = [[start.x, start.y]];
+    const claimed = new Set();
+    const targetSize = options.targetSize || (25 + ((Math.random() * 40) | 0));
+    let claimedCount = 0;
+
+    while (toClaim.length > 0 && claimedCount < targetSize) {
+        const [x, y] = toClaim.shift();
+        const key = y * cols + x;
+        if (claimed.has(key)) continue;
+        const t = world.tiles[key];
+        if (t === TILE.DEEP_OCEAN || t === TILE.OCEAN || t === TILE.SHALLOW) continue;
+        if (world.tileOwner[key] !== -1) continue;
+        world.tileOwner[key] = country.id;
+        claimed.add(key);
+        claimedCount++;
+        if (x + 1 < cols) toClaim.push([x + 1, y]);
+        if (x - 1 >= 0) toClaim.push([x - 1, y]);
+        if (y + 1 < rows) toClaim.push([x, y + 1]);
+        if (y - 1 >= 0) toClaim.push([x, y - 1]);
+    }
+
+    country.capital = { x: start.x, y: start.y, name: randomCityName(), pop: 1000 };
+    country.cities.push(country.capital);
+
+    if (!options.isRebel) {
+        for (let i = 0; i < 1 + ((Math.random() * 3) | 0); i++) {
+            for (let attempt = 0; attempt < 30; attempt++) {
+                const cx = start.x + ((Math.random() * 20) | 0) - 10;
+                const cy = start.y + ((Math.random() * 20) | 0) - 10;
+                if (cx < 0 || cy < 0 || cx >= cols || cy >= rows) continue;
+                if (world.tileOwner[cy * cols + cx] !== country.id) continue;
+                let tooClose = false;
+                for (const c of country.cities) {
+                    if (Math.abs(c.x - cx) < 3 && Math.abs(c.y - cy) < 3) { tooClose = true; break; }
+                }
+                if (tooClose) continue;
+                country.cities.push({ x: cx, y: cy, name: randomCityName(), pop: 100 + ((Math.random() * 500) | 0) });
+                break;
+            }
+        }
+    }
+
+    country.rebuildTechBonusCache();
+    country.recalc();
+    return country;
+}
+
+// ============================================================
+// СПЕЦИАЛЬНЫЙ СПАВН ВОССТАВШИХ — отрезаем связную область от родителя
+// ============================================================
+function spawnRebels(parent, rebelName) {
+    const cols = world.COLS, rows = world.ROWS;
+    const ownerArr = world.tileOwner;
+    const parentId = parent.id;
+
+    // Собираем все клетки родителя
+    const parentTiles = [];
+    for (let i = 0; i < ownerArr.length; i++) {
+        if (ownerArr[i] === parentId) parentTiles.push(i);
+    }
+    if (parentTiles.length < 30) return null;
+
+    // Находим клетку, максимально удалённую от столицы — центр восстания
+    let seedTile = null;
+    let maxDist = -1;
+    const capX = parent.capital ? parent.capital.x : cols / 2;
+    const capY = parent.capital ? parent.capital.y : rows / 2;
+
+    for (const i of parentTiles) {
+        const x = i % cols, y = (i / cols) | 0;
+        const d = Math.abs(x - capX) + Math.abs(y - capY);
+        if (d > maxDist) { maxDist = d; seedTile = i; }
+    }
+    if (seedTile === null) return null;
+
+    // Размер восстания — 30-45% от родителя
+    const targetSize = Math.floor(parentTiles.length * (0.3 + Math.random() * 0.15));
+
+    // BFS от seed по территории родителя
+    // Ключевая оптимизация: только по клеткам родителя, связная область
+    const toVisit = [seedTile];
+    const visited = new Set([seedTile]);
+    const rebelTiles = [seedTile];
+
+    while (toVisit.length > 0 && rebelTiles.length < targetSize) {
+        const idx = toVisit.shift();
+        const x = idx % cols, y = (idx / cols) | 0;
+
+        // Проверяем 4 соседа
+        const neighbors = [];
+        if (x + 1 < cols) neighbors.push(idx + 1);
+        if (x - 1 >= 0) neighbors.push(idx - 1);
+        if (y + 1 < rows) neighbors.push(idx + cols);
+        if (y - 1 >= 0) neighbors.push(idx - cols);
+
+        for (const n of neighbors) {
+            if (visited.has(n)) continue;
+            if (ownerArr[n] !== parentId) continue; // Только по территории родителя
+            visited.add(n);
+            rebelTiles.push(n);
+            toVisit.push(n);
+            if (rebelTiles.length >= targetSize) break;
+        }
+    }
+
+    if (rebelTiles.length < 15) return null;
+
+    // Создаём страну восставших
+    const rebelColor = parent.color; // Тот же цвет, что у родителя — визуально связано
+    const rebelCountry = new Country(rebelColor, {
+        name: rebelName,
+        isRebel: true,
+    });
+    rebelCountry.parentId = parent.id;
+    rebelCountry.birthYear = world.year;
+
+    // Копируем технологии родителя
+    for (const techId of parent.techsUnlocked) {
+        rebelCountry.techsUnlocked.add(techId);
+    }
+    rebelCountry.tech = rebelCountry.techsUnlocked.size;
+    rebelCountry.rebuildTechBonusCache();
+
+    // Копируем форму правления — революционеры выберут свою
+    const rebelGovs = ['republic', 'dictatorship', 'communism'];
+    rebelCountry.setGovernment(rebelGovs[(Math.random() * rebelGovs.length) | 0], true);
+
+    // Захватываем территорию
+    for (const i of rebelTiles) {
+        ownerArr[i] = rebelCountry.id;
+    }
+
+    // Добавляем в мир
+    world.countries.push(rebelCountry);
+    world.countryById.set(rebelCountry.id, rebelCountry);
+
+    // Столица — центр восстания
+    const capitalX = seedTile % cols;
+    const capitalY = (seedTile / cols) | 0;
+    rebelCountry.capital = { x: capitalX, y: capitalY, name: randomCityName(), pop: 500 };
+
+    // Переносим города родителя, попавшие на территорию восставших
+    const rebelTilesSet = new Set(rebelTiles);
+    const remainingCities = [];
+    for (const city of parent.cities) {
+        const cityIdx = city.y * cols + city.x;
+        if (rebelTilesSet.has(cityIdx)) {
+            // Город отошёл восставшим
+            rebelCountry.cities.push(city);
+        } else {
+            remainingCities.push(city);
+        }
+    }
+    parent.cities = remainingCities;
+
+    // Если столица родителя попала к восставшим — назначаем новую
+    if (parent.capital) {
+        const capIdx = parent.capital.y * cols + parent.capital.x;
+        if (rebelTilesSet.has(capIdx)) {
+            if (parent.cities.length > 0) {
+                parent.capital = parent.cities[0];
+            } else {
+                parent.capital = null;
+            }
+        }
+    }
+
+    // Инициализируем стабильность восставших
+    rebelCountry.stability = 0.7;
+    rebelCountry.recalc();
+
+    // История
+    rebelCountry.addHistory(`🔥 Восстание против ${parent.name}`, 'rebel');
+    rebelCountry.addHistory(`🏛️ Основание нового государства: ${rebelCountry.govType.name}`, 'found');
+    rebelCountry.addHistory(`🌍 Столица: ${rebelCountry.capital.name}`, 'found');
+
+    return rebelCountry;
+}
+
+// ============================================================
+// ВОЙНА — СИММЕТРИЧНАЯ, ОБЕ СТОРОНЫ АТАКУЮТ
+// ============================================================
+class War {
+    constructor(a, b, isCivil = false) {
+        this.a = a;
+        this.b = b;
+        this.startYear = world.year;
+        this.active = true;
+        this.tilesCapturedByA = 0;
+        this.tilesCapturedByB = 0;
+        this.frontTilesA = []; // Фронт со стороны A
+        this.frontTilesB = []; // Фронт со стороны B
+        this.weariness = 0;
+        this.isCivil = isCivil;
+    }
+
+    getPower(country) {
+        return country.army *
+               (1 + country.tech * 0.1 + country.getTechBonus('army')) *
+               country.morale *
+               (1 - Math.min(0.5, this.weariness * 0.5));
+    }
+
+    // Находим фронты для ОБЕИХ сторон независимо
+    findFronts() {
+        const cols = world.COLS, rows = world.ROWS;
+        const ownerArr = world.tileOwner;
+        const aId = this.a.id, bId = this.b.id;
+        const frontA = [], frontB = [];
+
+        for (let y = 0; y < rows; y++) {
+            const rowBase = y * cols;
+            for (let x = 0; x < cols; x++) {
+                const i = rowBase + x;
+                const owner = ownerArr[i];
+                if (owner !== aId && owner !== bId) continue;
+                let touchesEnemy = false;
+                // Проверяем 4 соседа
+                if (x + 1 < cols) {
+                    const n = ownerArr[i + 1];
+                    if (n !== owner && (n === aId || n === bId)) touchesEnemy = true;
+                }
+                if (!touchesEnemy && x - 1 >= 0) {
+                    const n = ownerArr[i - 1];
+                    if (n !== owner && (n === aId || n === bId)) touchesEnemy = true;
+                }
+                if (!touchesEnemy && y + 1 < rows) {
+                    const n = ownerArr[i + cols];
+                    if (n !== owner && (n === aId || n === bId)) touchesEnemy = true;
+                }
+                if (!touchesEnemy && y - 1 >= 0) {
+                    const n = ownerArr[i - cols];
+                    if (n !== owner && (n === aId || n === bId)) touchesEnemy = true;
+                }
+                if (touchesEnemy) {
+                    if (owner === aId) frontA.push(i);
+                    else frontB.push(i);
+                }
+            }
+        }
+        return { frontA, frontB };
+    }
+
+    // Атака одной стороны — атакуем вражеские клетки рядом с нашими
+    // attackerTiles — клетки атакующего на фронте
+    // defenderId — id обороняющегося
+    attack(attacker, defenderId, attackerFrontTiles, attackerPower, defenderPower) {
+        if (attackerFrontTiles.length === 0) return 0;
+
+        const cols = world.COLS, rows = world.ROWS;
+        const ownerArr = world.tileOwner;
+
+        // Собираем все вражеские клетки рядом с клетками атакующего
+        const enemyNeighbors = new Set();
+        for (const i of attackerFrontTiles) {
+            const x = i % cols, y = (i / cols) | 0;
+            if (x + 1 < cols && ownerArr[i + 1] === defenderId) enemyNeighbors.add(i + 1);
+            if (x - 1 >= 0 && ownerArr[i - 1] === defenderId) enemyNeighbors.add(i - 1);
+            if (y + 1 < rows && ownerArr[i + cols] === defenderId) enemyNeighbors.add(i + cols);
+            if (y - 1 >= 0 && ownerArr[i - cols] === defenderId) enemyNeighbors.add(i - cols);
+        }
+
+        if (enemyNeighbors.size === 0) return 0;
+
+        const enemyList = [...enemyNeighbors];
+        const ratio = attackerPower / (attackerPower + defenderPower + 1);
+        const maxTargets = Math.max(1, Math.floor(enemyList.length * ratio * 0.35));
+
+        // Перемешиваем
+        for (let i = enemyList.length - 1; i > 0; i--) {
+            const j = (Math.random() * (i + 1)) | 0;
+            [enemyList[i], enemyList[j]] = [enemyList[j], enemyList[i]];
+        }
+
+        const atkBonus = attacker.getTechBonus('army');
+        const defArmyBonus = defenderId !== undefined ? (world.countryById.get(defenderId)?.getTechBonus('army') || 0) : 0;
+        const attackMod = (1 + atkBonus) * attacker.morale;
+        const defendMod = (1 + defArmyBonus) * 1.15; // у защитника небольшой бонус обороны
+
+        let captured = 0;
+        const count = Math.min(maxTargets, enemyList.length);
+        for (let i = 0; i < count; i++) {
+            const idx = enemyList[i];
+            const captureChance = Math.min(0.9, ratio * 0.75 + 0.1) * (attackMod / defendMod);
+            if (Math.random() < captureChance) {
+                ownerArr[idx] = attacker.id;
+                captured++;
+                world.battles.push({ x: idx % cols, y: (idx / cols) | 0, color: attacker.color, age: 0, life: 20 });
+            } else {
+                world.battles.push({ x: idx % cols, y: (idx / cols) | 0, color: '#ff5555', age: 0, life: 15 });
+            }
+        }
+        return captured;
+    }
+
+    update() {
+        if (!this.active) return;
+        this.weariness += 0.0008;
+        if (!this.a.alive || !this.b.alive) { this.active = false; return; }
+
+        const { frontA, frontB } = this.findFronts();
+        if (frontA.length === 0 && frontB.length === 0) {
+            this.active = false;
+            this.endWar();
+            return;
+        }
+
+        // Сохраняем фронты для визуализации
+        this.frontTilesA = frontA;
+        this.frontTilesB = frontB;
+
+        // Считаем силы обеих сторон
+        const powerA = this.getPower(this.a);
+        const powerB = this.getPower(this.b);
+
+        // ============================================================
+        // ГЛАВНОЕ ИСПРАВЛЕНИЕ: ОБЕ СТОРОНЫ АТАКУЮТ ДРУГ ДРУГА
+        // A атакует клетки B, B атакует клетки A — независимо
+        // ============================================================
+        const capturedByA = this.attack(this.a, this.b.id, frontA, powerA, powerB);
+        const capturedByB = this.attack(this.b, this.a.id, frontB, powerB, powerA);
+
+        this.tilesCapturedByA += capturedByA;
+        this.tilesCapturedByB += capturedByB;
+
+        // Потери армий
+        const totalCaptured = capturedByA + capturedByB;
+        if (totalCaptured > 0) {
+            const aEff = capturedByA / (totalCaptured + 1);
+            const bEff = capturedByB / (totalCaptured + 1);
+            this.a.army = Math.floor(this.a.army * (0.96 + 0.02 * aEff));
+            this.b.army = Math.floor(this.b.army * (0.96 + 0.02 * bEff));
+            this.a.morale = Math.max(0.4, this.a.morale - 0.004 * (1 - aEff));
+            this.b.morale = Math.max(0.4, this.b.morale - 0.004 * (1 - bEff));
+        } else {
+            // Даже без захватов есть небольшие потери
+            this.a.army = Math.floor(this.a.army * 0.995);
+            this.b.army = Math.floor(this.b.army * 0.995);
+        }
+
+        this.a.recalc();
+        this.b.recalc();
+
+        // Проверка окончания
+        if (this.a.tiles === 0) { destroyCountry(this.a, this.b); this.active = false; this.endWar(); return; }
+        if (this.b.tiles === 0) { destroyCountry(this.b, this.a); this.active = false; this.endWar(); return; }
+        if (this.a.army < 200 || this.b.army < 200) { this.active = false; this.endWar(); return; }
+        if (this.weariness > 0.5 && Math.random() < 0.02) { this.active = false; this.endWar(); }
+    }
+
+    endWar() {
+        this.a.enemies.delete(this.b.id);
+        this.b.enemies.delete(this.a.id);
+        this.a.morale = Math.min(1, this.a.morale + 0.3);
+        this.b.morale = Math.min(1, this.b.morale + 0.3);
+
+        const aTotal = this.tilesCapturedByA;
+        const bTotal = this.tilesCapturedByB;
+        let text;
+        if (!this.a.alive) {
+            text = `🏆 ${this.b.name} завоевала ${this.a.name}!`;
+        } else if (!this.b.alive) {
+            text = `🏆 ${this.a.name} завоевала ${this.b.name}!`;
+        } else if (aTotal > bTotal * 2 && aTotal > 20) {
+            text = `📜 ${this.a.name} победила ${this.b.name}`;
+            this.a.addHistory(`📜 Победа в войне против ${this.b.name}`, 'war');
+            this.b.addHistory(`📜 Поражение в войне против ${this.a.name}`, 'war');
+        } else if (bTotal > aTotal * 2 && bTotal > 20) {
+            text = `📜 ${this.b.name} победила ${this.a.name}`;
+            this.b.addHistory(`📜 Победа в войне против ${this.a.name}`, 'war');
+            this.a.addHistory(`📜 Поражение в войне против ${this.b.name}`, 'war');
+        } else {
+            text = `⚖️ ${this.a.name} и ${this.b.name} — мир`;
+            this.a.addHistory(`⚖️ Мир с ${this.b.name}`, 'peace');
+            this.b.addHistory(`⚖️ Мир с ${this.a.name}`, 'peace');
+        }
+        notify(text, 'peace');
+
+        const idx = world.activeWars.indexOf(this);
+        if (idx !== -1) world.activeWars.splice(idx, 1);
+    }
+}
+
+function destroyCountry(country, conqueror) {
+    country.alive = false;
+    country.deathYear = world.year;
+    const ownerArr = world.tileOwner;
+    const fromId = country.id, toId = conqueror.id;
+    for (let i = 0; i < ownerArr.length; i++) {
+        if (ownerArr[i] === fromId) ownerArr[i] = toId;
+    }
+    for (const c of country.cities) conqueror.cities.push(c);
+    country.cities = [];
+    country.capital = null;
+    notify(`💀 ${country.name} пала! Победитель: ${conqueror.name}`, 'war');
+    country.addHistory(`💀 Государство пало под натиском ${conqueror.name}`, 'collapse');
+    conqueror.addHistory(`⚔️ Покорена страна ${country.name}`, 'war');
+    world.deadCountries.push(country);
+    for (const war of [...world.activeWars]) {
+        if (war.a.id === country.id || war.b.id === country.id) {
+            war.active = false;
+            war.a.enemies.delete(country.id);
+            war.b.enemies.delete(country.id);
+            const idx = world.activeWars.indexOf(war);
+            if (idx !== -1) world.activeWars.splice(idx, 1);
+        }
+    }
+    world.countryById.delete(country.id);
+}
+
+function declareWar(a, b, isCivil = false) {
+    if (!settings.warsAllowed && !isCivil) return false;
+    if (a.enemies.has(b.id)) return false;
+    a.enemies.add(b.id);
+    b.enemies.add(a.id);
+    const war = new War(a, b, isCivil);
+    world.activeWars.push(war);
+    if (!isCivil) world.wars++;
+    if (isCivil) {
+        notify(`🔥 Гражданская война: ${a.name} против ${b.name}!`, 'rebel');
+        a.addHistory(`🔥 Гражданская война против ${b.name}`, 'rebel');
+        b.addHistory(`🔥 Гражданская война против ${a.name}`, 'rebel');
+    } else {
+        notify(`⚔️ ${a.name} объявила войну ${b.name}!`, 'war');
+        a.addHistory(`⚔️ Объявлена война ${b.name}`, 'war');
+        b.addHistory(`⚔️ ${a.name} объявила нам войну`, 'war');
+        a.wars++;
+        b.wars++;
+    }
+    return true;
+}
+
+// ============================================================
+// ВОССТАНИЕ
+// ============================================================
+function tryRebellion(country) {
+    if (!country.canRebel()) return false;
+
+    const rebelName = randomRebelName(country.name);
+    const rebelCountry = spawnRebels(country, rebelName);
+    if (!rebelCountry) return false;
+
+    country.stability = Math.max(0, country.stability - 0.2);
+    country.lastRebellionYear = world.year;
+
+    declareWar(rebelCountry, country, true);
+
+    world.rebellions++;
+    notify(`🔥 Восстание в ${country.name}! Образована ${rebelCountry.name}`, 'rebel');
+    country.addHistory(`🔥 Восстание! Образовано государство ${rebelCountry.name}`, 'rebel');
+
+    return true;
+}
+
+// ============================================================
+// ПОЯВЛЕНИЕ НОВЫХ ПЛЕМЁН
+// ============================================================
+function trySpawnNewTribe() {
+    if (!settings.newTribesAllowed) return false;
+    const alive = world.countries.filter(c => c.alive);
+    const maxCountries = settings.mapSize === 'small' ? 12 : settings.mapSize === 'large' ? 30 : 20;
+    if (alive.length >= maxCountries) return false;
+    const start = findStartLocation();
+    if (!start) return false;
+    const country = spawnCountry({ start });
+    if (country) notify(`🌱 Возникло новое племя: ${country.name}`, 'peace');
+    return true;
+}
+
+// ============================================================
+// СОСЕДИ
+// ============================================================
+function recomputeNeighbors() {
+    neighborCache.clear();
+    const cols = world.COLS, rows = world.ROWS;
+    const ownerArr = world.tileOwner;
+    for (const c of world.countries) {
+        if (c.alive) neighborCache.set(c.id, new Set());
+    }
+    for (let y = 0; y < rows - 1; y++) {
+        const rowBase = y * cols;
+        for (let x = 0; x < cols - 1; x++) {
+            const i = rowBase + x;
+            const a = ownerArr[i];
+            if (a === -1) continue;
+            const b1 = ownerArr[i + 1];
+            if (b1 !== -1 && b1 !== a) {
+                const setA = neighborCache.get(a);
+                const setB1 = neighborCache.get(b1);
+                if (setA) setA.add(b1);
+                if (setB1) setB1.add(a);
+            }
+            const b2 = ownerArr[i + cols];
+            if (b2 !== -1 && b2 !== a) {
+                const setA = neighborCache.get(a);
+                const setB2 = neighborCache.get(b2);
+                if (setA) setA.add(b2);
+                if (setB2) setB2.add(a);
+            }
+        }
+    }
+}
+
+function processWarDeclarations() {
+    if (!settings.warsAllowed) return;
+    if (world.activeWars.length >= 8) return;
+    if (world.year - neighborCacheYear > 10) {
+        recomputeNeighbors();
+        neighborCacheYear = world.year;
+    }
+    const alive = world.countries.filter(c => c.alive);
+    if (alive.length < 2) return;
+
+    for (const attacker of alive) {
+        if (attacker.enemies.size > 0) continue;
+        if (attacker.stability < 0.5) continue;
+        const neighborIds = neighborCache.get(attacker.id);
+        if (!neighborIds || neighborIds.size === 0) continue;
+        let bestTarget = null, bestScore = -1;
+        for (const nid of neighborIds) {
+            const target = world.countryById.get(nid);
+            if (!target || !target.alive || attacker.enemies.has(target.id)) continue;
+            const stabilityPenalty = target.stability < 0.5 ? 0.5 : 1.0;
+            const ratio = (attacker.army * (1 + attacker.tech * 0.1)) /
+                          (target.army * (1 + target.tech * 0.1) + 1) / stabilityPenalty;
+            const score = ratio * (0.5 + attacker.aggression);
+            if (score > 1.1 && score > bestScore) { bestScore = score; bestTarget = target; }
+        }
+        if (bestTarget) {
+            const chance = 0.02 + attacker.aggression * 0.05;
+            if (Math.random() < chance) declareWar(attacker, bestTarget);
+        }
+    }
+}
+
+// ============================================================
+// СИМУЛЯЦИЯ
+// ============================================================
+function expandCountry(country) {
+    if (!country.alive) return;
+    if (country.enemies.size > 0) return;
+    if (!settings.expansionAllowed) return;
+    if (country.stability < 0.4) return;
+
+    const cols = world.COLS, rows = world.ROWS;
+    const ownerArr = world.tileOwner;
+    const tilesArr = world.tiles;
+    const id = country.id;
+    const frontier = [];
+
+    for (let y = 1; y < rows - 1; y++) {
+        const rowBase = y * cols;
+        for (let x = 1; x < cols - 1; x++) {
+            const i = rowBase + x;
+            if (ownerArr[i] !== id) continue;
+            if (ownerArr[i + 1] === -1 && tilesArr[i + 1] !== TILE.DEEP_OCEAN && tilesArr[i + 1] !== TILE.OCEAN) frontier.push(i + 1);
+            if (ownerArr[i - 1] === -1 && tilesArr[i - 1] !== TILE.DEEP_OCEAN && tilesArr[i - 1] !== TILE.OCEAN) frontier.push(i - 1);
+            if (ownerArr[i + cols] === -1 && tilesArr[i + cols] !== TILE.DEEP_OCEAN && tilesArr[i + cols] !== TILE.OCEAN) frontier.push(i + cols);
+            if (ownerArr[i - cols] === -1 && tilesArr[i - cols] !== TILE.DEEP_OCEAN && tilesArr[i - cols] !== TILE.OCEAN) frontier.push(i - cols);
+        }
+    }
+    if (frontier.length === 0) return;
+    const expansions = Math.max(1, Math.floor((1 + country.tech * 0.3 + Math.random() * 2) * DEV_MULT[settings.devSpeed]));
+    for (let i = 0; i < expansions && frontier.length > 0; i++) {
+        const idx = (Math.random() * frontier.length) | 0;
+        const tileIdx = frontier[idx];
+        frontier[idx] = frontier[frontier.length - 1];
+        frontier.pop();
+        world.tileOwner[tileIdx] = id;
+    }
+}
+
+function processCities() {
+    if (!settings.citiesAllowed) return;
+    for (const c of world.countries) {
+        if (!c.alive) continue;
+        for (const city of c.cities) {
+            city.pop = Math.floor(city.pop * (1 + 0.005 + Math.random() * 0.01));
+        }
+        if (c.tiles > 30 && Math.random() < 0.003 * c.tiles / 100) {
+            for (let attempt = 0; attempt < 20; attempt++) {
+                const x = (Math.random() * world.COLS) | 0;
+                const y = (Math.random() * world.ROWS) | 0;
+                if (world.tileOwner[y * world.COLS + x] !== c.id) continue;
+                let tooClose = false;
+                for (const city of c.cities) {
+                    if (Math.abs(city.x - x) < 5 && Math.abs(city.y - y) < 5) { tooClose = true; break; }
+                }
+                if (tooClose) continue;
+                const cityName = randomCityName();
+                c.cities.push({ x, y, name: cityName, pop: 100 + ((Math.random() * 300) | 0) });
+                c.addHistory(`🏙️ Основан город ${cityName}`, 'gov');
+                break;
+            }
+        }
+    }
+}
+
+function stepSimulation() {
+    const devMult = DEV_MULT[settings.devSpeed];
+    const yearsPerStep = devMult >= 1 ? Math.max(1, Math.round(devMult)) : 1;
+    world.year += yearsPerStep;
+
+    // Появление новых племён
+    if (settings.newTribesAllowed && world.year > 100 && world.year % 30 === 0) {
+        const alive = world.countries.filter(c => c.alive);
+        const maxCountries = settings.mapSize === 'small' ? 12 : settings.mapSize === 'large' ? 30 : 20;
+        const chance = 0.3 + (1 - alive.length / maxCountries) * 0.5;
+        if (Math.random() < chance) {
+            trySpawnNewTribe();
+        }
+    }
+
+    // Расширение
+    for (const c of world.countries) {
+        if (!c.alive) continue;
+        if (Math.random() < 0.3 + c.aggression * 0.3) expandCountry(c);
+    }
+
+    // Исследования
+    if (settings.techAllowed) {
+        for (const c of world.countries) if (c.alive) c.updateResearch(yearsPerStep);
+    }
+
+    // Правители
+    if (settings.leadersChange) {
+        for (const c of world.countries) if (c.alive) c.updateLeader(yearsPerStep);
+    }
+
+    // Стабильность
+    for (const c of world.countries) {
+        if (c.alive) c.updateStability(yearsPerStep);
+    }
+
+    // Восстания
+    if (settings.rebellionsAllowed) {
+        for (const c of [...world.countries]) {
+            if (!c.alive) continue;
+            if (c.canRebel()) {
+                const rebelChance = (0.35 - c.stability) * 0.15 * yearsPerStep;
+                if (Math.random() < rebelChance) {
+                    tryRebellion(c);
+                }
+            }
+        }
+    }
+
+    // Войны
+    processWarDeclarations();
+    for (const war of [...world.activeWars]) war.update();
+
+    // Эффекты
+    for (let i = world.battles.length - 1; i >= 0; i--) {
+        world.battles[i].age++;
+        if (world.battles[i].age > world.battles[i].life) {
+            world.battles[i] = world.battles[world.battles.length - 1];
+            world.battles.pop();
+        }
+    }
+
+    processCities();
+    for (const c of world.countries) if (c.alive) c.recalc();
+    for (const c of world.countries) {
+        if (!c.alive) continue;
+        if (c.enemies.size === 0) c.morale = Math.min(1, c.morale + 0.01);
+    }
+}
+
+// ============================================================
+// ОТРИСОВКА
+// ============================================================
+function resizeCanvas() {
+    if (!canvas) return;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+
+function screenToWorld(sx, sy) { return { x: sx / camera.zoom + camera.x, y: sy / camera.zoom + camera.y }; }
+
+function draw() {
+    if (!ctx) return;
+    const t0 = performance.now();
+    const W = canvas.width, H = canvas.height;
+    ctx.fillStyle = '#050810';
+    ctx.fillRect(0, 0, W, H);
+
+    if (!world.tiles) { drawTime = performance.now() - t0; return; }
+
+    const viewLeft = camera.x, viewTop = camera.y;
+    const viewRight = camera.x + W / camera.zoom, viewBottom = camera.y + H / camera.zoom;
+    const cols = world.COLS, rows = world.ROWS;
+    const ts = world.TILE_SIZE;
+
+    const startX = Math.max(0, Math.floor(viewLeft / ts));
+    const startY = Math.max(0, Math.floor(viewTop / ts));
+    const endX = Math.min(cols, Math.ceil(viewRight / ts) + 1);
+    const endY = Math.min(rows, Math.ceil(viewBottom / ts) + 1);
+    const cellPx = ts * camera.zoom;
+    const cellPxCeil = Math.ceil(cellPx) + 1;
+
+    const tilesArr = world.tiles;
+    const ownerArr = world.tileOwner;
+
+    const countryColorCache = new Map();
+    for (const c of world.countries) {
+        if (c.alive) countryColorCache.set(c.id, c.color);
+    }
+
+    for (let y = startY; y < endY; y++) {
+        const rowBase = y * cols;
+        const sy = Math.floor((y * ts - camera.y) * camera.zoom);
+        for (let x = startX; x < endX; x++) {
+            const t = tilesArr[rowBase + x];
+            const sx = Math.floor((x * ts - camera.x) * camera.zoom);
+            ctx.fillStyle = TILE_COLORS[t];
+            ctx.fillRect(sx, sy, cellPxCeil, cellPxCeil);
+        }
+    }
+
+    ctx.globalAlpha = 0.55;
+    for (let y = startY; y < endY; y++) {
+        const rowBase = y * cols;
+        const sy = Math.floor((y * ts - camera.y) * camera.zoom);
+        for (let x = startX; x < endX; x++) {
+            const owner = ownerArr[rowBase + x];
+            if (owner === -1) continue;
+            const color = countryColorCache.get(owner);
+            if (!color) continue;
+            const sx = Math.floor((x * ts - camera.x) * camera.zoom);
+            ctx.fillStyle = color;
+            ctx.fillRect(sx, sy, cellPxCeil, cellPxCeil);
+        }
+    }
+    ctx.globalAlpha = 1;
+
+    if (settings.showBorders && camera.zoom > 0.8) {
+        ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+        ctx.lineWidth = Math.max(1, camera.zoom * 0.8);
+        ctx.beginPath();
+        for (let y = startY; y < endY; y++) {
+            const rowBase = y * cols;
+            const sy = Math.floor((y * ts - camera.y) * camera.zoom);
+            const syEnd = sy + cellPx;
+            for (let x = startX; x < endX; x++) {
+                const owner = ownerArr[rowBase + x];
+                if (owner === -1) continue;
+                const sx = Math.floor((x * ts - camera.x) * camera.zoom);
+                if (x + 1 < cols && ownerArr[rowBase + x + 1] !== owner) {
+                    ctx.moveTo(sx + cellPx, sy);
+                    ctx.lineTo(sx + cellPx, syEnd);
+                }
+                if (y + 1 < rows && ownerArr[rowBase + cols + x] !== owner) {
+                    ctx.moveTo(sx, syEnd);
+                    ctx.lineTo(sx + cellPx, syEnd);
+                }
+            }
+        }
+        ctx.stroke();
+    }
+
+    // Фронты — теперь для обеих сторон
+    if (camera.zoom > 0.7) {
+        const pulse = 0.6 + Math.sin(world.year * 0.3) * 0.4;
+        for (const war of world.activeWars) {
+            const color = war.isCivil ? `rgba(255, 150, 60, ${0.8 * pulse})` : `rgba(255, 60, 60, ${0.7 * pulse})`;
+            ctx.fillStyle = color;
+            // Обе стороны фронта
+            for (const i of war.frontTilesA) {
+                const x = i % cols, y = (i / cols) | 0;
+                if (x < startX - 2 || x >= endX + 2 || y < startY - 2 || y >= endY + 2) continue;
+                const sx = (x * ts - camera.x) * camera.zoom;
+                const sy = (y * ts - camera.y) * camera.zoom;
+                ctx.beginPath();
+                ctx.arc(sx + cellPx / 2, sy + cellPx / 2, Math.max(2, camera.zoom * 1.2), 0, Math.PI * 2);
+                ctx.fill();
+            }
+            for (const i of war.frontTilesB) {
+                const x = i % cols, y = (i / cols) | 0;
+                if (x < startX - 2 || x >= endX + 2 || y < startY - 2 || y >= endY + 2) continue;
+                const sx = (x * ts - camera.x) * camera.zoom;
+                const sy = (y * ts - camera.y) * camera.zoom;
+                ctx.beginPath();
+                ctx.arc(sx + cellPx / 2, sy + cellPx / 2, Math.max(2, camera.zoom * 1.2), 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+    }
+
+    for (const b of world.battles) {
+        if (b.x < startX - 2 || b.x >= endX + 2 || b.y < startY - 2 || b.y >= endY + 2) continue;
+        const sx = (b.x * ts - camera.x) * camera.zoom + cellPx / 2;
+        const sy = (b.y * ts - camera.y) * camera.zoom + cellPx / 2;
+        const progress = 1 - b.age / b.life;
+        const r = Math.max(2, camera.zoom * 3 * progress);
+        ctx.fillStyle = `rgba(255, 200, 100, ${progress * 0.8})`;
+        ctx.beginPath();
+        ctx.arc(sx, sy, r, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    if (camera.zoom > 1.2) {
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1;
+        for (const c of world.countries) {
+            if (!c.alive) continue;
+            for (const city of c.cities) {
+                if (city.x < startX || city.x >= endX || city.y < startY || city.y >= endY) continue;
+                const sx = (city.x * ts - camera.x) * camera.zoom + cellPx / 2;
+                const sy = (city.y * ts - camera.y) * camera.zoom + cellPx / 2;
+                const r = Math.max(2, camera.zoom * 1.5);
+                ctx.beginPath();
+                ctx.arc(sx, sy, r, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+        }
+    }
+
+    if (settings.showNames && camera.zoom > 0.6) {
+        for (const c of world.countries) {
+            if (!c.alive) continue;
+            let cx, cy;
+            if (c.capital) { cx = c.capital.x; cy = c.capital.y; }
+            else {
+                let sumX = 0, sumY = 0, count = 0;
+                for (let y = 0; y < rows; y += 3) {
+                    const rowBase = y * cols;
+                    for (let x = 0; x < cols; x += 3) {
+                        if (ownerArr[rowBase + x] === c.id) { sumX += x; sumY += y; count++; }
+                    }
+                }
+                if (count === 0) continue;
+                cx = sumX / count; cy = sumY / count;
+            }
+            const sx = (cx * ts - camera.x) * camera.zoom;
+            const sy = (cy * ts - camera.y) * camera.zoom;
+            if (sx < -100 || sy < -50 || sx > W + 100 || sy > H + 50) continue;
+            const fontSize = Math.max(11, Math.min(22, camera.zoom * 8));
+            ctx.font = `bold ${fontSize}px 'Segoe UI', Arial, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+            ctx.lineWidth = 3;
+            ctx.strokeText(c.name, sx, sy);
+            if (c.isRebel) {
+                ctx.fillStyle = '#ffaa66';
+            } else if (c.enemies.size > 0) {
+                ctx.fillStyle = '#ffcccc';
+            } else if (c.stability < 0.4) {
+                ctx.fillStyle = '#ffddaa';
+            } else {
+                ctx.fillStyle = '#ffffff';
+            }
+            ctx.fillText(c.name, sx, sy);
+        }
+    }
+
+    if (world.selectedCountry && world.selectedCountry.alive) {
+        const c = world.selectedCountry;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        for (let y = startY; y < endY; y++) {
+            const rowBase = y * cols;
+            const sy = Math.floor((y * ts - camera.y) * camera.zoom);
+            const syEnd = sy + cellPx;
+            for (let x = startX; x < endX; x++) {
+                if (ownerArr[rowBase + x] !== c.id) continue;
+                const sx = Math.floor((x * ts - camera.x) * camera.zoom);
+                if (x + 1 < cols && ownerArr[rowBase + x + 1] !== c.id) {
+                    ctx.moveTo(sx + cellPx, sy);
+                    ctx.lineTo(sx + cellPx, syEnd);
+                }
+                if (y + 1 < rows && ownerArr[rowBase + cols + x] !== c.id) {
+                    ctx.moveTo(sx, syEnd);
+                    ctx.lineTo(sx + cellPx, syEnd);
+                }
+            }
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    drawTime = performance.now() - t0;
+}
+
+// ============================================================
+// UI
+// ============================================================
+function formatNum(n) {
+    if (n >= 1e9) return (n / 1e9).toFixed(1) + 'B';
+    if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+    return Math.floor(n);
+}
+
+function updateTopBar() {
+    const alive = world.countries.filter(c => c.alive);
+    document.getElementById('ui-year').textContent = world.year;
+    document.getElementById('ui-countries').textContent = alive.length;
+    let totalPop = 0, totalGdp = 0;
+    for (const c of alive) { totalPop += c.population; totalGdp += c.gdp; }
+    document.getElementById('ui-pop').textContent = formatNum(totalPop);
+    document.getElementById('ui-gdp').textContent = formatNum(totalGdp);
+    document.getElementById('ui-wars').textContent = world.activeWars.length;
+    document.getElementById('ui-rebels').textContent = world.rebellions;
+}
+
+function notify(text, type = '') {
+    const container = document.getElementById('notifications');
+    if (!container) return;
+    const div = document.createElement('div');
+    div.className = 'notif ' + type;
+    const title = type === 'war' ? '⚔️ Война' :
+                  type === 'tech' ? '🔬 Наука' :
+                  type === 'gov' ? '👑 Политика' :
+                  type === 'rebel' ? '🔥 Восстание' : '🌱 Событие';
+    div.innerHTML = `<div class="title">${title}</div><div>${text}</div>`;
+    container.insertBefore(div, container.firstChild);
+    setTimeout(() => {
+        div.style.transition = 'opacity 0.5s, transform 0.5s';
+        div.style.opacity = '0';
+        div.style.transform = 'translateX(30px)';
+        setTimeout(() => div.remove(), 500);
+    }, 3500);
+    while (container.children.length > 6) container.removeChild(container.lastChild);
+}
+
+function renderTechList(country) {
+    const list = document.getElementById('ci-tech-list');
+    const eraEl = document.getElementById('ci-era');
+    const eraFill = document.getElementById('ci-era-fill');
+    list.innerHTML = '';
+
+    const era = getEra(country);
+    eraEl.textContent = era.name;
+    eraEl.style.color = era.color;
+
+    const progress = (country.techsUnlocked.size / TECHNOLOGIES.length) * 100;
+    eraFill.style.width = progress + '%';
+
+    for (const tech of TECHNOLOGIES) {
+        const unlocked = country.techsUnlocked.has(tech.id);
+        const researching = country.currentResearch === tech.id;
+        const canR = country.canResearch(tech.id);
+        const locked = !unlocked && !researching && !canR;
+
+        const div = document.createElement('div');
+        div.className = 'tech-item';
+        if (unlocked) div.classList.add('unlocked');
+        else if (researching) div.classList.add('researching');
+        else if (locked) div.classList.add('locked');
+
+        let progress2 = 0;
+        let status = '—';
+        if (unlocked) { progress2 = 100; status = '✓'; }
+        else if (researching) {
+            progress2 = Math.min(100, country.researchProgress / tech.cost * 100);
+            status = Math.floor(progress2) + '%';
+        }
+
+        let desc = tech.desc;
+        if (locked && tech.requires.length > 0) {
+            const reqNames = tech.requires.map(id => TECH_BY_ID[id]?.name || id).join(', ');
+            desc = '🔒 Требуется: ' + reqNames;
+        }
+
+        div.innerHTML = `
+            <div class="tech-icon">${tech.icon}</div>
+            <div class="tech-info">
+                <div class="tech-name">${tech.name}</div>
+                <div class="tech-desc">${desc}</div>
+                <div class="tech-bar">
+                    <div class="tech-fill" style="width:${progress2}%"></div>
+                </div>
+            </div>
+            <div class="tech-status">${status}</div>
+        `;
+        list.appendChild(div);
+    }
+}
+
+function renderHistory(country) {
+    const list = document.getElementById('ci-history-list');
+    list.innerHTML = '';
+    if (!country.history || country.history.length === 0) {
+        list.innerHTML = '<div class="history-empty">История пуста</div>';
+        return;
+    }
+    const sorted = [...country.history].sort((a, b) => b.year - a.year);
+    for (const entry of sorted) {
+        const div = document.createElement('div');
+        div.className = 'history-item ' + (entry.type || '');
+        div.innerHTML = `<span class="h-year">[${entry.year} г.]</span>${entry.text}`;
+        list.appendChild(div);
+    }
+}
+
+function showCountryInfo(country) {
+    if (!country) {
+        document.getElementById('country-info').classList.remove('show');
+        return;
+    }
+    document.getElementById('ci-flag').style.background = country.color;
+    document.getElementById('ci-name').textContent = country.name;
+    document.getElementById('ci-founded').textContent = 
+        `Основано: ${country.birthYear} г. · Существует ${world.year - country.birthYear} лет`;
+
+    const gov = country.govType;
+    if (gov) {
+        document.getElementById('ci-gov-type').textContent = `${gov.icon} ${gov.name}`;
+        document.getElementById('ci-gov-type').style.color = gov.color;
+    }
+    if (country.leader) {
+        document.getElementById('ci-leader').textContent =
+            `${country.leader.title} ${country.leader.name} · ${country.leaderAge} лет`;
+    }
+
+    // Статус повстанца
+    const rebelStatus = document.getElementById('ci-rebel-status');
+    if (country.isRebel) {
+        const parent = country.parentId !== null ? world.countryById.get(country.parentId) : null;
+        const parentName = parent ? parent.name : 'неизвестного государства';
+        rebelStatus.innerHTML = `<div class="rebel-status">🔥 Восставшее государство · Отделилось от ${parentName}</div>`;
+    } else {
+        rebelStatus.innerHTML = '';
+    }
+
+    document.getElementById('ci-capital').textContent = 'Столица: ' + (country.capital ? country.capital.name : '—');
+    document.getElementById('ci-pop').textContent = formatNum(country.population);
+    document.getElementById('ci-army').textContent = formatNum(country.army);
+    document.getElementById('ci-gdp').textContent = formatNum(country.gdp);
+    document.getElementById('ci-area').textContent = (country.tiles * world.TILE_SIZE * world.TILE_SIZE / 100).toFixed(0) + ' км²';
+    document.getElementById('ci-wars-total').textContent = country.wars;
+
+    const stabEl = document.getElementById('ci-stability');
+    const stabPct = Math.floor(country.stability * 100);
+    stabEl.textContent = stabPct + '%';
+    if (stabPct > 70) stabEl.style.color = '#66ff88';
+    else if (stabPct > 40) stabEl.style.color = '#ffdd66';
+    else stabEl.style.color = '#ff6666';
+
+    const warStatus = document.getElementById('ci-war-status');
+    if (country.enemies.size > 0) {
+        const enemyNames = [...country.enemies].map(id => {
+            const e = world.countryById.get(id);
+            return e ? e.name : '?';
+        }).join(', ');
+        const isCivil = [...country.enemies].some(id => {
+            const e = world.countryById.get(id);
+            return e && (e.parentId === country.id || country.parentId === e.id);
+        });
+        warStatus.innerHTML = `<div class="war-status">${isCivil ? '🔥 Гражданская война' : '⚔️ Война'} с: ${enemyNames}</div>`;
+    } else {
+        warStatus.innerHTML = '';
+    }
+
+    const stabWarn = document.getElementById('ci-stability-warning');
+    if (country.stability < 0.4) {
+        stabWarn.innerHTML = `<div class="stability-warning">⚠️ Народ на грани восстания! Стабильность критически низкая</div>`;
+    } else if (country.stability < 0.6) {
+        stabWarn.innerHTML = `<div class="stability-warning" style="background:rgba(255,200,0,0.1);border-left-color:#ffcc00;color:#ffeeaa">😟 Недовольство растёт из-за затяжной войны</div>`;
+    } else {
+        stabWarn.innerHTML = '';
+    }
+
+    renderTechList(country);
+    renderHistory(country);
+    document.getElementById('country-info').classList.add('show');
+}
+
+function switchInfoTab(tabName) {
+    currentInfoTab = tabName;
+    document.querySelectorAll('.info-tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.info === tabName);
+    });
+    document.querySelectorAll('[data-info-content]').forEach(c => {
+        c.classList.toggle('active', c.dataset.infoContent === tabName);
+    });
+}
+
+// ============================================================
+// СТАТИСТИКА
+// ============================================================
+function buildTopList(containerId, valueFn, formatFn, count = 5) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    const alive = world.countries.filter(c => c.alive);
+    const sorted = [...alive].sort((a, b) => valueFn(b) - valueFn(a)).slice(0, count);
+    sorted.forEach((c, i) => {
+        const div = document.createElement('div');
+        div.className = 'top-item' + (i === 0 ? ' rank-1' : i === 1 ? ' rank-2' : i === 2 ? ' rank-3' : '');
+        div.innerHTML = `
+            <span class="rank">#${i + 1}</span>
+            <span class="color-dot" style="background:${c.color}"></span>
+            <span class="name">${c.name}</span>
+            <span class="value">${formatFn(c)}</span>
+        `;
+        div.addEventListener('click', () => {
+            world.selectedCountry = c;
+            showCountryInfo(c);
+            if (c.capital) {
+                camera.x = c.capital.x * world.TILE_SIZE - canvas.width / 2 / camera.zoom;
+                camera.y = c.capital.y * world.TILE_SIZE - canvas.height / 2 / camera.zoom;
+            }
+        });
+        container.appendChild(div);
+    });
+}
+
+function updateStatsPanel() {
+    document.getElementById('stats-year').textContent = world.year;
+    buildTopList('top-gdp', c => c.gdp, c => formatNum(c.gdp));
+    buildTopList('top-pop', c => c.population, c => formatNum(c.population));
+    buildTopList('top-army', c => c.army, c => formatNum(c.army));
+    buildTopList('top-territory', c => c.tiles, c => (c.tiles * world.TILE_SIZE * world.TILE_SIZE / 100).toFixed(0) + ' км²');
+    buildTopList('top-tech', c => c.techsUnlocked.size, c => `${c.techsUnlocked.size} / ${TECHNOLOGIES.length}`);
+
+    const tbody = document.getElementById('all-countries-body');
+    tbody.innerHTML = '';
+    const alive = world.countries.filter(c => c.alive);
+    const recentDead = world.deadCountries.filter(c => world.year - c.deathYear < 500);
+    const allShown = [...alive, ...recentDead];
+    const sorted = [...allShown].sort((a, b) => b.gdp - a.gdp);
+    const html = sorted.map((c, i) => {
+        let techDots = '<div class="tech-mini">';
+        for (const tech of TECHNOLOGIES) {
+            const unlocked = c.techsUnlocked.has(tech.id);
+            const researching = c.currentResearch === tech.id;
+            techDots += `<div class="tech-mini-dot ${unlocked ? 'done' : researching ? 'prog' : ''}"></div>`;
+        }
+        techDots += '</div>';
+        const leaderText = c.leader ? c.leader.name : '—';
+        const govText = c.govType ? c.govType.icon : '';
+        const era = getEra(c);
+        const nameClass = c.alive ? 'c-name' : 'c-name dead-name';
+        return `<tr data-cid="${c.id}" style="cursor:pointer">
+            <td>${i + 1}</td>
+            <td><span class="c-color" style="background:${c.color}"></span><span class="${nameClass}">${c.name}</span>${c.isRebel ? ' 🔥' : ''}</td>
+            <td>${c.birthYear} г.</td>
+            <td>${govText} ${leaderText}</td>
+            <td>${formatNum(c.population)}</td>
+            <td>${formatNum(c.gdp)}</td>
+            <td>${formatNum(c.army)}</td>
+            <td><span style="color:${era.color};font-size:10px">${era.name}</span> ${techDots}</td>
+        </tr>`;
+    }).join('');
+    tbody.innerHTML = html;
+    tbody.querySelectorAll('tr').forEach(tr => {
+        tr.addEventListener('click', () => {
+            const cid = parseInt(tr.dataset.cid);
+            const c = world.countryById.get(cid);
+            if (c) {
+                world.selectedCountry = c;
+                showCountryInfo(c);
+                if (c.capital) {
+                    camera.x = c.capital.x * world.TILE_SIZE - canvas.width / 2 / camera.zoom;
+                    camera.y = c.capital.y * world.TILE_SIZE - canvas.height / 2 / camera.zoom;
+                }
+            }
+        });
+    });
+
+    const select = document.getElementById('tech-country-select');
+    const prevValue = select.value;
+    select.innerHTML = '';
+    for (const c of alive) {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        select.appendChild(opt);
+    }
+    if (prevValue && alive.find(c => c.id == prevValue)) select.value = prevValue;
+    updateTechDetail();
+}
+
+function updateTechDetail() {
+    const select = document.getElementById('tech-country-select');
+    const countryId = parseInt(select.value);
+    const country = world.countryById.get(countryId);
+    const list = document.getElementById('tech-detail-list');
+    list.innerHTML = '';
+    if (!country) {
+        list.innerHTML = '<div style="color:#8aaccc;text-align:center;padding:40px;">Нет доступных стран</div>';
+        return;
+    }
+    for (const tech of TECHNOLOGIES) {
+        const unlocked = country.techsUnlocked.has(tech.id);
+        const researching = country.currentResearch === tech.id;
+        const canR = country.canResearch(tech.id);
+        const locked = !unlocked && !researching && !canR;
+        const progress = researching ? Math.min(100, country.researchProgress / tech.cost * 100) : (unlocked ? 100 : 0);
+
+        let desc = tech.desc;
+        if (locked && tech.requires.length > 0) {
+            const reqNames = tech.requires.map(id => TECH_BY_ID[id]?.name || id).join(', ');
+            desc = '🔒 Требуется: ' + reqNames;
+        }
+
+        const div = document.createElement('div');
+        div.className = 'tech-detail-item' + (unlocked ? ' done' : researching ? ' researching' : locked ? ' locked' : '');
+        div.innerHTML = `
+            <div class="tech-detail-icon">${tech.icon}</div>
+            <div class="tech-detail-body">
+                <div class="tech-detail-era">${tech.era}</div>
+                <div class="tech-detail-name">${tech.name}</div>
+                <div class="tech-detail-desc">${desc}</div>
+                <div class="tech-progress-bar"><div class="tech-progress-fill" style="width:${progress}%"></div></div>
+            </div>
+            <div class="tech-detail-status">${unlocked ? '✓' : researching ? Math.floor(progress) + '%' : locked ? '🔒' : '—'}</div>
+        `;
+        list.appendChild(div);
+    }
+}
+
+function openStats() {
+    document.getElementById('stats-panel').classList.add('show');
+    updateStatsPanel();
+}
+function closeStats() {
+    document.getElementById('stats-panel').classList.remove('show');
+}
+
+// ============================================================
+// ЗАПУСК
+// ============================================================
+function startNewGame() {
+    const size = MAP_SIZES[settings.mapSize];
+    world.W = size.W;
+    world.H = size.H;
+    world.COLS = world.W / world.TILE_SIZE;
+    world.ROWS = world.H / world.TILE_SIZE;
+
+    world.countries = [];
+    world.countryById = new Map();
+    world.nextCountryId = 0;
+    world.year = 0;
+    world.wars = 0;
+    world.rebellions = 0;
+    world.running = false;
+    world.selectedCountry = null;
+    world.activeWars = [];
+    world.battles = [];
+    world.deadCountries = [];
+    neighborCacheYear = -999;
+    camera.zoom = 1;
+
+    document.getElementById('country-info').classList.remove('show');
+    document.getElementById('notifications').innerHTML = '';
+    document.getElementById('hint').textContent = 'Нажмите «▶ Начать»';
+    document.getElementById('hint').style.color = '';
+
+    generateWorld();
+    for (let i = 0; i < settings.startCountries; i++) spawnCountry();
+
+    camera.x = world.W / 2 - canvas.width / 2 / camera.zoom;
+    camera.y = world.H / 2 - canvas.height / 2 / camera.zoom;
+    clampCamera();
+
+    document.getElementById('btn-names').classList.toggle('active', settings.showNames);
+    document.getElementById('btn-borders').classList.toggle('active', settings.showBorders);
+    syncSettingsToggles();
+}
+
+function clampCamera() {
+    const W = canvas.width, H = canvas.height;
+    const viewW = W / camera.zoom;
+    const viewH = H / camera.zoom;
+    if (viewW < world.W + 400) camera.x = Math.max(-200, Math.min(world.W + 200 - viewW, camera.x));
+    if (viewH < world.H + 400) camera.y = Math.max(-200, Math.min(world.H + 200 - viewH, camera.y));
+}
+
+// ============================================================
+// ЦИКЛ
+// ============================================================
+function loop(timestamp) {
+    requestAnimationFrame(loop);
+
+    if (!gameUI || !gameUI.classList.contains('show')) return;
+
+    framesSinceFps++;
+    if (timestamp - lastFpsUpdate > 500) {
+        currentFps = Math.round(framesSinceFps * 1000 / (timestamp - lastFpsUpdate));
+        framesSinceFps = 0;
+        lastFpsUpdate = timestamp;
+        const fpsEl = document.getElementById('ui-fps');
+        if (fpsEl) fpsEl.textContent = currentFps;
+        const dbgFps = document.getElementById('dbg-fps');
+        if (dbgFps) dbgFps.textContent = currentFps;
+    }
+
+    if (world.running) {
+        const baseInterval = 600 / settings.baseGameSpeed * (5 / world.speed);
+        const interval = Math.max(16, baseInterval);
+        if (timestamp - lastSimUpdate > interval) {
+            const t0 = performance.now();
+            stepSimulation();
+            simTime = performance.now() - t0;
+            lastSimUpdate = timestamp;
+        }
+    }
+
+    draw();
+    updateTopBar();
+
+    if (world.selectedCountry && world.selectedCountry.alive) {
+        if (Math.floor(timestamp / 500) !== notifTimer) {
+            notifTimer = Math.floor(timestamp / 500);
+            showCountryInfo(world.selectedCountry);
+        }
+    }
+    if (document.getElementById('stats-panel').classList.contains('show')) {
+        if (Math.floor(timestamp / 800) !== statsTimer) {
+            statsTimer = Math.floor(timestamp / 800);
+            updateStatsPanel();
+        }
+    }
+
+    const dbg = document.getElementById('debug-panel');
+    if (dbg && dbg.classList.contains('show')) {
+        document.getElementById('dbg-sim').textContent = simTime.toFixed(2);
+        document.getElementById('dbg-draw').textContent = drawTime.toFixed(2);
+        document.getElementById('dbg-tiles').textContent = (world.COLS * world.ROWS).toLocaleString();
+        document.getElementById('dbg-countries').textContent = world.countries.filter(c => c.alive).length;
+        document.getElementById('dbg-wars').textContent = world.activeWars.length;
+        document.getElementById('dbg-rebels').textContent = world.rebellions;
+        document.getElementById('dbg-effects').textContent = world.battles.length;
+    }
+}
+
+// ============================================================
+// ИНИЦИАЛИЗАЦИЯ DOM
+// ============================================================
+function syncSettingsToggles() {
+    document.querySelectorAll('[data-setting]').forEach(toggle => {
+        const key = toggle.dataset.setting;
+        toggle.classList.toggle('on', !!settings[key]);
+    });
+    document.querySelectorAll('[data-ingame-setting]').forEach(toggle => {
+        const key = toggle.dataset.ingameSetting;
+        toggle.classList.toggle('on', !!settings[key]);
+    });
+}
+
+function setupToggle(toggle) {
+    toggle.addEventListener('click', () => {
+        const key = toggle.dataset.setting || toggle.dataset.ingameSetting;
+        settings[key] = !settings[key];
+        toggle.classList.toggle('on', settings[key]);
+        if (toggle.dataset.ingameSetting) {
+            if (key === 'warsAllowed' && !settings[key]) {
+                for (const war of [...world.activeWars]) {
+                    if (war.isCivil) continue;
+                    war.active = false;
+                    war.a.enemies.delete(war.b.id);
+                    war.b.enemies.delete(war.a.id);
+                }
+                world.activeWars = world.activeWars.filter(w => w.active);
+                notify('🕊️ Все обычные войны прекращены', 'peace');
+            }
+            if (key === 'showNames') document.getElementById('btn-names').classList.toggle('active', settings.showNames);
+            if (key === 'showBorders') document.getElementById('btn-borders').classList.toggle('active', settings.showBorders);
+        }
+    });
+}
+
+function initDOM() {
+    mainMenu = document.getElementById('main-menu');
+    gameUI = document.getElementById('game-ui');
+    loadingScreen = document.getElementById('loading-screen');
+    canvas = document.getElementById('map');
+    ctx = canvas.getContext('2d', { alpha: false });
+    resizeCanvas();
+
+    canvas.addEventListener('click', (e) => {
+        if (!gameUI.classList.contains('show')) return;
+        const rect = canvas.getBoundingClientRect();
+        const sx = e.clientX - rect.left;
+        const sy = e.clientY - rect.top;
+        const w = screenToWorld(sx, sy);
+        const tx = Math.floor(w.x / world.TILE_SIZE);
+        const ty = Math.floor(w.y / world.TILE_SIZE);
+        if (tx < 0 || ty < 0 || tx >= world.COLS || ty >= world.ROWS) {
+            world.selectedCountry = null;
+            showCountryInfo(null);
+            return;
+        }
+        const owner = world.tileOwner[ty * world.COLS + tx];
+        if (owner === -1) {
+            world.selectedCountry = null;
+            showCountryInfo(null);
+            return;
+        }
+        const country = world.countryById.get(owner);
+        world.selectedCountry = country;
+        showCountryInfo(country);
+    });
+
+    canvas.addEventListener('mousedown', (e) => {
+        if (e.button === 0 || e.button === 2) {
+            camera.dragging = true;
+            camera.dragStartX = e.clientX;
+            camera.dragStartY = e.clientY;
+            camera.camStartX = camera.x;
+            camera.camStartY = camera.y;
+        }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        if (camera.dragging) {
+            const dx = e.clientX - camera.dragStartX;
+            const dy = e.clientY - camera.dragStartY;
+            camera.x = camera.camStartX - dx / camera.zoom;
+            camera.y = camera.camStartY - dy / camera.zoom;
+            clampCamera();
+        }
+        const rect = canvas.getBoundingClientRect();
+        const sx = e.clientX - rect.left;
+        const sy = e.clientY - rect.top;
+        const w = screenToWorld(sx, sy);
+        const tx = Math.floor(w.x / world.TILE_SIZE);
+        const ty = Math.floor(w.y / world.TILE_SIZE);
+        const tooltip = document.getElementById('tooltip');
+        if (tx >= 0 && ty >= 0 && tx < world.COLS && ty < world.ROWS) {
+            const owner = world.tileOwner[ty * world.COLS + tx];
+            if (owner !== -1) {
+                const c = world.countryById.get(owner);
+                if (c) {
+                    const era = getEra(c);
+                    let info = c.name + ' · ' + era.name;
+                    if (c.isRebel) info += ' 🔥';
+                    if (c.leader) info += ` · ${c.govType.icon} ${c.leader.name}`;
+                    if (c.enemies.size > 0) info += ' · ⚔️';
+                    if (c.stability < 0.4) info += ' · ⚠️';
+                    tooltip.textContent = info;
+                    tooltip.style.left = (e.clientX + 15) + 'px';
+                    tooltip.style.top = (e.clientY + 15) + 'px';
+                    tooltip.style.display = 'block';
+                }
+            } else {
+                tooltip.style.display = 'none';
+            }
+        } else {
+            tooltip.style.display = 'none';
+        }
+    });
+
+    canvas.addEventListener('mouseup', () => { camera.dragging = false; });
+    canvas.addEventListener('mouseleave', () => {
+        camera.dragging = false;
+        document.getElementById('tooltip').style.display = 'none';
+    });
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+    canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const sx = e.clientX - rect.left;
+        const sy = e.clientY - rect.top;
+        const before = screenToWorld(sx, sy);
+        const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+        camera.zoom = Math.max(camera.minZoom, Math.min(camera.maxZoom, camera.zoom * factor));
+        const after = screenToWorld(sx, sy);
+        camera.x += before.x - after.x;
+        camera.y += before.y - after.y;
+        clampCamera();
+    }, { passive: false });
+
+    document.querySelectorAll('.info-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            switchInfoTab(tab.dataset.info);
+        });
+    });
+
+    function openModal(id) { document.getElementById(id).classList.add('show'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+    on('menu-play', 'click', () => openModal('modal-newgame'));
+    on('menu-settings', 'click', () => {
+        syncSettingsToggles();
+        openModal('modal-settings');
+    });
+    on('menu-about', 'click', () => openModal('modal-about'));
+    on('about-close', 'click', () => closeModal('modal-about'));
+
+    document.querySelectorAll('#modal-newgame .option-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const opt = btn.dataset.opt;
+            const val = btn.dataset.val;
+            document.querySelectorAll(`#modal-newgame .option-btn[data-opt="${opt}"]`).forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            settings[opt === 'size' ? 'mapSize' : opt === 'type' ? 'mapType' : 'devSpeed'] = val;
+        });
+    });
+
+    on('opt-countries', 'input', (e) => {
+        settings.startCountries = parseInt(e.target.value);
+        document.getElementById('val-countries').textContent = settings.startCountries;
+    });
+    on('newgame-cancel', 'click', () => closeModal('modal-newgame'));
+
+    on('newgame-start', 'click', () => {
+        closeModal('modal-newgame');
+        loadingScreen.classList.add('show');
+
+        setTimeout(() => {
+            try {
+                startNewGame();
+                mainMenu.classList.add('hidden');
+                gameUI.classList.add('show');
+                resizeCanvas();
+                camera.x = world.W / 2 - canvas.width / 2 / camera.zoom;
+                camera.y = world.H / 2 - canvas.height / 2 / camera.zoom;
+                clampCamera();
+
+                if (!loopStarted) {
+                    loopStarted = true;
+                    requestAnimationFrame(loop);
+                }
+                loadingScreen.classList.remove('show');
+            } catch (err) {
+                console.error(err);
+                document.getElementById('error-overlay').textContent = 'Ошибка запуска: ' + err.message;
+                document.getElementById('error-overlay').classList.add('show');
+                loadingScreen.classList.remove('show');
+            }
+        }, 100);
+    });
+
+    on('settings-close', 'click', () => closeModal('modal-settings'));
+
+    document.querySelectorAll('[data-setting]').forEach(setupToggle);
+    document.querySelectorAll('[data-ingame-setting]').forEach(setupToggle);
+
+    on('btn-settings-ingame', 'click', () => {
+        syncSettingsToggles();
+        openModal('modal-ingame-settings');
+    });
+    on('ingame-settings-close', 'click', () => closeModal('modal-ingame-settings'));
+
+    on('btn-menu', 'click', () => {
+        if (confirm('Выйти в главное меню? Прогресс будет потерян.')) {
+            world.running = false;
+            gameUI.classList.remove('show');
+            mainMenu.classList.remove('hidden');
+        }
+    });
+
+    on('btn-start', 'click', () => {
+        world.running = true;
+        document.getElementById('hint').textContent = 'Симуляция запущена!';
+        document.getElementById('hint').style.color = '#88ffaa';
+    });
+    on('btn-pause', 'click', () => {
+        world.running = !world.running;
+        document.getElementById('hint').textContent = world.running ? 'Симуляция идёт...' : '⏸ Пауза';
+    });
+    document.querySelectorAll('.speed-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            world.speed = parseInt(btn.dataset.speed);
+        });
+    });
+    on('btn-regen', 'click', () => {
+        if (confirm('Создать новый мир?')) {
+            loadingScreen.classList.add('show');
+            setTimeout(() => {
+                startNewGame();
+                resizeCanvas();
+                camera.x = world.W / 2 - canvas.width / 2 / camera.zoom;
+                camera.y = world.H / 2 - canvas.height / 2 / camera.zoom;
+                clampCamera();
+                loadingScreen.classList.remove('show');
+            }, 100);
+        }
+    });
+    on('btn-names', 'click', (e) => {
+        settings.showNames = !settings.showNames;
+        e.target.classList.toggle('active', settings.showNames);
+        syncSettingsToggles();
+    });
+    on('btn-borders', 'click', (e) => {
+        settings.showBorders = !settings.showBorders;
+        e.target.classList.toggle('active', settings.showBorders);
+        syncSettingsToggles();
+    });
+    on('close-info', 'click', () => {
+        document.getElementById('country-info').classList.remove('show');
+        world.selectedCountry = null;
+    });
+    on('btn-zoom-in', 'click', () => {
+        camera.zoom = Math.min(camera.maxZoom, camera.zoom * 1.3);
+        clampCamera();
+    });
+    on('btn-zoom-out', 'click', () => {
+        camera.zoom = Math.max(camera.minZoom, camera.zoom / 1.3);
+        clampCamera();
+    });
+    on('btn-debug', 'click', () => {
+        document.getElementById('debug-panel').classList.toggle('show');
+    });
+
+    on('btn-stats', 'click', openStats);
+    on('close-stats', 'click', closeStats);
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+        });
+    });
+    on('tech-country-select', 'change', updateTechDetail);
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeStats();
+            closeModal('modal-ingame-settings');
+            closeModal('modal-newgame');
+            closeModal('modal-settings');
+            closeModal('modal-about');
+        }
+        if (e.key === 'F3') {
+            e.preventDefault();
+            document.getElementById('debug-panel').classList.toggle('show');
+        }
+    });
+
+    syncSettingsToggles();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDOM);
+} else {
+    initDOM();
+}
+</script>
+</body>
+</html>
